@@ -511,7 +511,9 @@ async function applyShot(shot) {
   } else {
     document.body.classList.add('shot-editor');
     // The editor scene frames best with a portrait canvas beside
-    // the control rail.
+    // the control rail — and the aspect selector must agree with
+    // the canvas it describes.
+    els.aspectSel.value = 'portrait';
     setAspect('portrait');
   }
   try { await document.fonts.load('80px Anton'); await document.fonts.ready; } catch { /* offline font fallback */ }

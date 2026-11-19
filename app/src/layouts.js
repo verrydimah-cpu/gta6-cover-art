@@ -17,8 +17,11 @@ const heroCollage = [
   poly([[0, 0], [0.56, 0], [0.505, 0.575], [0, 0.575]]),
   poly([[0.575, 0], [1, 0], [1, 0.335], [0.52, 0.395]]),
   poly([[0.515, 0.415], [1, 0.355], [1, 0.665], [0.5, 0.695]]),
-  poly([[0.495, 0.715], [1, 0.685], [1, 1], [0.6, 1]]),
-  poly([[0, 0.595], [0.5, 0.595], [0.47, 1], [0, 1]]),
+  poly([[0.495, 0.715], [1, 0.685], [1, 1], [0.47, 1]]),
+  // The base panel reaches a little past the hero's bottom corner
+  // so the four-way junction of panels 0, 2, 3 and 4 has no wedge
+  // of bare backdrop showing through.
+  poly([[0, 0.595], [0.525, 0.575], [0.49, 1], [0, 1]]),
 ];
 
 // Diagonal Trio: three full-height blades leaning the same way, like

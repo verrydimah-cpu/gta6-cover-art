@@ -46,11 +46,13 @@ export function motifsFor(seed, panelIndex) {
 // the caller has already clipped to the panel polygon.
 
 function drawSun(ctx, b, ink) {
-  // Slatted retro sun sitting on the top-right corner: a half-disc
-  // whose lower bands are cut away with widening gaps.
-  const r = Math.min(b.w, b.h) * 0.34;
-  const cx = b.maxX - r * 0.35;
-  const cy = b.minY + r * 0.3;
+  // Slatted retro sun tucked into the top-right corner: a modest
+  // disc, most of it outside the panel, whose lower bands are cut
+  // away with widening gaps. It must stay a corner accent — at
+  // larger radii it swallows the top of the photo.
+  const r = Math.min(b.w, b.h) * 0.21;
+  const cx = b.maxX - r * 0.12;
+  const cy = b.minY + r * 0.08;
   ctx.save();
   ctx.fillStyle = ink;
   ctx.beginPath();
@@ -98,8 +100,8 @@ function drawPalms(ctx, b, ink, stream) {
   for (let i = 0; i < 2; i += 1) {
     const baseX = b.minX + b.w * (0.02 + i * 0.1);
     const baseY = b.maxY;
-    const topX = baseX + b.w * (0.1 + stream() * 0.05);
-    const topY = b.maxY - b.h * (0.42 + stream() * 0.14);
+    const topX = baseX + b.w * (0.07 + stream() * 0.04);
+    const topY = b.maxY - b.h * (0.3 + stream() * 0.1);
     ctx.lineWidth = Math.max(2, b.w * 0.016);
     ctx.beginPath();
     ctx.moveTo(baseX, baseY);
@@ -107,7 +109,7 @@ function drawPalms(ctx, b, ink, stream) {
     ctx.stroke();
     for (let f = 0; f < 6; f += 1) {
       const ang = Math.PI * (0.08 + f * 0.17);
-      const len = Math.min(b.w, b.h) * (0.16 + stream() * 0.05);
+      const len = Math.min(b.w, b.h) * (0.11 + stream() * 0.04);
       ctx.lineWidth = Math.max(1.4, b.w * 0.009);
       ctx.beginPath();
       ctx.moveTo(topX, topY);
@@ -213,7 +215,7 @@ export function drawDecor(ctx, boundsPx, seed, panelIndex, ink) {
   if (!motifs.length) return;
   const stream = rng(seed * 31 + panelIndex * 977 + 5);
   ctx.save();
-  ctx.globalAlpha = 0.5;
+  ctx.globalAlpha = 0.38;
   for (const motif of motifs) DRAW[motif](ctx, boundsPx, ink, stream);
   ctx.restore();
 }
