@@ -1,221 +1,125 @@
-// decor.js — seeded procedural decoration for Vice Cover Studio.
-//
-// Each panel may carry one or two small motifs: a slatted retro sun,
-// a skyline, palm silhouettes, a flight of birds, a plane with a
-// contrail, a lifeguard tower. The rules that keep them tasteful:
-//
-//   * a motif is always anchored to a panel EDGE or corner — it is
-//     clipped by the panel polygon and pushed against its bounds, so
-//     it never wanders over the centre of a photo, where faces live;
-//   * the choice and placement come from a seeded RNG, so a cover
-//     renders identically every time it is drawn (preview == export);
-//   * motifs are flat silhouettes in one ink colour at modest alpha,
-//     printed-poster style, never photoreal clutter.
+// Vector decor motifs drawn straight onto the cover canvas.
+// Full-strength decor dresses gradient panels; photo panels receive
+// the same motifs as quiet corner dressing at low opacity so the
+// photography stays the hero of every panel.
 
-// Small deterministic RNG (mulberry32). Same seed, same stream.
-export function rng(seed) {
-  let a = (seed >>> 0) || 1;
-  return function next() {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-const MOTIFS = ['sun', 'skyline', 'palms', 'birds', 'plane', 'tower'];
-
-// Pick this panel's motifs: the first panel of a cover always gets
-// the slatted sun (it is the studio's signature), the rest draw from
-// the seeded stream. Roughly one panel in three stays clean.
-export function motifsFor(seed, panelIndex) {
-  const stream = rng(seed * 7919 + panelIndex * 131 + 17);
-  if (panelIndex === 0) return ['sun'];
-  const roll = stream();
-  if (roll < 0.34) return [];
-  const first = MOTIFS[Math.floor(stream() * MOTIFS.length)];
-  if (roll > 0.86) {
-    const second = MOTIFS[Math.floor(stream() * MOTIFS.length)];
-    if (second !== first) return [first, second];
-  }
-  return [first];
-}
-
-// --- the motifs ------------------------------------------------------
-// All drawing happens in pixel space inside the panel's bounds box;
-// the caller has already clipped to the panel polygon.
-
-function drawSun(ctx, b, ink) {
-  // Slatted retro sun tucked into the top-right corner: a modest
-  // disc, most of it outside the panel, whose lower bands are cut
-  // away with widening gaps. It must stay a corner accent — at
-  // larger radii it swallows the top of the photo.
-  const r = Math.min(b.w, b.h) * 0.21;
-  const cx = b.maxX - r * 0.12;
-  const cy = b.minY + r * 0.08;
-  ctx.save();
-  ctx.fillStyle = ink;
+function tracePath(ctx, pts, close) {
   ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fill();
-  // The slats are painted back in deep shade rather than erased:
-  // erasing would punch transparent holes through the photo and out
-  // of the exported PNG, while shade stripes read as the classic
-  // venetian-blind sun and keep the sheet fully opaque.
-  ctx.fillStyle = 'rgba(18, 5, 34, 0.55)';
-  let y = cy + r * 0.08;
-  let gap = r * 0.05;
-  while (y < cy + r) {
-    ctx.fillRect(cx - r, y, r * 2, gap);
-    y += gap + r * 0.13;
-    gap *= 1.55;
-  }
-  ctx.restore();
+  pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+  if (close) ctx.closePath();
 }
 
-function drawSkyline(ctx, b, ink, stream) {
-  // A row of towers along the bottom edge, heights from the stream,
-  // a few windows left un-inked so they read as lit.
+export function drawPalmFrond(ctx, x, y, size, flip) {
   ctx.save();
-  ctx.fillStyle = ink;
-  const base = b.maxY;
-  let x = b.minX - b.w * 0.04;
-  while (x < b.maxX) {
-    const w = b.w * (0.07 + stream() * 0.09);
-    const h = b.h * (0.1 + stream() * 0.17);
-    ctx.fillRect(x, base - h, w, h);
-    if (stream() > 0.55) ctx.fillRect(x + w * 0.3, base - h - b.h * 0.035, w * 0.4, b.h * 0.035);
-    x += w + b.w * 0.012;
-  }
-  ctx.restore();
-}
-
-function drawPalms(ctx, b, ink, stream) {
-  // Two palm silhouettes leaning in from the left edge: a curved
-  // trunk and a crown of arcing fronds.
-  ctx.save();
-  ctx.strokeStyle = ink;
-  ctx.fillStyle = ink;
+  ctx.translate(x, y);
+  ctx.scale(flip ? -1 : 1, 1);
+  ctx.lineWidth = size * 0.045;
   ctx.lineCap = 'round';
-  for (let i = 0; i < 2; i += 1) {
-    const baseX = b.minX + b.w * (0.02 + i * 0.1);
-    const baseY = b.maxY;
-    const topX = baseX + b.w * (0.07 + stream() * 0.04);
-    const topY = b.maxY - b.h * (0.3 + stream() * 0.1);
-    ctx.lineWidth = Math.max(2, b.w * 0.016);
+  for (let i = 0; i < 6; i++) {
+    const a = -0.25 - i * 0.32;
+    const len = size * (0.72 + 0.28 * Math.sin(i * 1.7));
     ctx.beginPath();
-    ctx.moveTo(baseX, baseY);
-    ctx.quadraticCurveTo(baseX + b.w * 0.015, (baseY + topY) / 2, topX, topY);
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(
+      Math.cos(a) * len * 0.55, Math.sin(a) * len * 0.55 - size * 0.1,
+      Math.cos(a) * len, Math.sin(a) * len + size * 0.16,
+    );
     ctx.stroke();
-    for (let f = 0; f < 6; f += 1) {
-      const ang = Math.PI * (0.08 + f * 0.17);
-      const len = Math.min(b.w, b.h) * (0.11 + stream() * 0.04);
-      ctx.lineWidth = Math.max(1.4, b.w * 0.009);
-      ctx.beginPath();
-      ctx.moveTo(topX, topY);
-      ctx.quadraticCurveTo(
-        topX + Math.cos(ang) * len * 0.6,
-        topY - Math.sin(ang) * len * 0.75,
-        topX + Math.cos(ang) * len,
-        topY - Math.sin(ang) * len * 0.35 + len * 0.3,
-      );
-      ctx.stroke();
+  }
+  ctx.restore();
+}
+
+export function drawSunDisc(ctx, cx, cy, r) {
+  ctx.save();
+  for (let i = 0; i < 7; i++) {
+    const y = cy - r + (i * 2 * r) / 7;
+    if (i > 3) continue;
+    ctx.beginPath();
+    ctx.arc(cx, y, r * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+export function drawStar(ctx, cx, cy, r) {
+  const pts = [];
+  for (let i = 0; i < 8; i++) {
+    const a = (i * Math.PI) / 4 - Math.PI / 2;
+    const rad = i % 2 === 0 ? r : r * 0.34;
+    pts.push([cx + Math.cos(a) * rad, cy + Math.sin(a) * rad]);
+  }
+  tracePath(ctx, pts, true);
+  ctx.fill();
+}
+
+export function drawWaves(ctx, x, y, w, rows) {
+  ctx.save();
+  ctx.lineWidth = Math.max(2, w * 0.008);
+  for (let r = 0; r < rows; r++) {
+    ctx.beginPath();
+    const yy = y + r * w * 0.045;
+    for (let px = 0; px <= w; px += w / 24) {
+      const py = yy + Math.sin((px / w) * Math.PI * 4 + r) * w * 0.012;
+      if (px === 0) ctx.moveTo(x + px, py); else ctx.lineTo(x + px, py);
     }
-  }
-  ctx.restore();
-}
-
-function drawBirds(ctx, b, ink, stream) {
-  // A loose flight of birds near the top edge: little two-arc gulls.
-  ctx.save();
-  ctx.strokeStyle = ink;
-  ctx.lineCap = 'round';
-  const n = 3 + Math.floor(stream() * 3);
-  for (let i = 0; i < n; i += 1) {
-    const cx = b.minX + b.w * (0.12 + stream() * 0.7);
-    const cy = b.minY + b.h * (0.05 + stream() * 0.12);
-    const s = Math.min(b.w, b.h) * (0.028 + stream() * 0.02);
-    ctx.lineWidth = Math.max(1.2, s * 0.22);
-    ctx.beginPath();
-    ctx.moveTo(cx - s, cy);
-    ctx.quadraticCurveTo(cx - s * 0.4, cy - s * 0.8, cx, cy);
-    ctx.quadraticCurveTo(cx + s * 0.4, cy - s * 0.8, cx + s, cy);
     ctx.stroke();
   }
   ctx.restore();
 }
 
-function drawPlane(ctx, b, ink, stream) {
-  // A small jet crossing the top edge with a fading contrail.
+export function drawBirds(ctx, x, y, s) {
   ctx.save();
-  const y = b.minY + b.h * (0.07 + stream() * 0.06);
-  const x0 = b.minX + b.w * 0.08;
-  const x1 = b.minX + b.w * (0.55 + stream() * 0.2);
-  const grad = ctx.createLinearGradient(x0, 0, x1, 0);
-  grad.addColorStop(0, 'rgba(255,255,255,0)');
-  grad.addColorStop(1, 'rgba(255,255,255,0.55)');
-  ctx.strokeStyle = grad;
-  ctx.lineWidth = Math.max(1.4, b.h * 0.008);
-  ctx.beginPath();
-  ctx.moveTo(x0, y + b.h * 0.012);
-  ctx.lineTo(x1, y);
-  ctx.stroke();
-  ctx.fillStyle = ink;
-  ctx.translate(x1, y);
-  const s = Math.min(b.w, b.h) * 0.05;
-  ctx.beginPath(); // simple jet silhouette: fuselage, wing, tail
-  ctx.moveTo(s, 0);
-  ctx.lineTo(-s * 0.4, -s * 0.22);
-  ctx.lineTo(-s * 0.1, -s * 0.95);
-  ctx.lineTo(s * 0.28, -s * 0.2);
-  ctx.lineTo(s * 0.75, -s * 0.16);
-  ctx.lineTo(s * 0.75, s * 0.16);
-  ctx.lineTo(s * 0.28, s * 0.2);
-  ctx.lineTo(-s * 0.1, s * 0.95);
-  ctx.lineTo(-s * 0.4, s * 0.22);
-  ctx.closePath();
-  ctx.fill();
+  ctx.lineWidth = Math.max(1.6, s * 0.09);
+  ctx.lineCap = 'round';
+  const bird = (bx, by, bs) => {
+    ctx.beginPath();
+    ctx.moveTo(bx - bs, by);
+    ctx.quadraticCurveTo(bx - bs * 0.3, by - bs * 0.7, bx, by);
+    ctx.quadraticCurveTo(bx + bs * 0.3, by - bs * 0.7, bx + bs, by);
+    ctx.stroke();
+  };
+  bird(x, y, s);
+  bird(x + s * 2.4, y + s * 0.7, s * 0.7);
+  bird(x + s * 1.1, y - s * 0.9, s * 0.55);
   ctx.restore();
 }
 
-function drawTower(ctx, b, ink) {
-  // A lifeguard tower standing in the bottom-right corner: hut on
-  // crossed legs with a little roof.
+// Corner dressing for a photo panel: a palm silhouette tucked into
+// the lower corner plus two small sparkles, kept whisper-quiet at
+// roughly a fifth opacity so it reads as print texture, not clip art.
+export function drawPanelCornerDecor(ctx, b, seed, colour) {
   ctx.save();
-  ctx.fillStyle = ink;
-  ctx.strokeStyle = ink;
-  const w = Math.min(b.w, b.h) * 0.2;
-  const h = w * 1.5;
-  const x = b.maxX - w * 1.25;
-  const base = b.maxY;
-  const hutY = base - h;
-  ctx.fillRect(x - w * 0.08, hutY - h * 0.1, w * 1.16, h * 0.09); // roof
-  ctx.fillRect(x, hutY, w, h * 0.34); // hut
-  ctx.lineWidth = Math.max(1.6, w * 0.07);
-  ctx.beginPath(); // crossed legs
-  ctx.moveTo(x + w * 0.08, hutY + h * 0.34);
-  ctx.lineTo(x + w * 0.86, base);
-  ctx.moveTo(x + w * 0.92, hutY + h * 0.34);
-  ctx.lineTo(x + w * 0.14, base);
-  ctx.moveTo(x + w * 0.05, base - h * 0.3);
-  ctx.lineTo(x + w * 0.95, base - h * 0.3);
-  ctx.stroke();
+  const s = Math.min(b.w, b.h);
+  const left = seed % 2 === 0;
+  // The palm reads as a deep plum silhouette against bright skies;
+  // a cream stroke would vanish on a sunlit photograph.
+  ctx.globalAlpha = 0.24;
+  ctx.strokeStyle = '#20082e';
+  drawPalmFrond(ctx, left ? b.minX + s * 0.06 : b.maxX - s * 0.06, b.maxY - s * 0.04, s * 0.52, !left);
+  ctx.globalAlpha = 0.34;
+  ctx.strokeStyle = colour;
+  ctx.fillStyle = colour;
+  drawStar(ctx, b.minX + b.w * (0.14 + (seed % 3) * 0.06), b.minY + b.h * 0.16, s * 0.035);
+  drawStar(ctx, b.maxX - b.w * 0.12, b.minY + b.h * (0.3 + (seed % 2) * 0.12), s * 0.025);
   ctx.restore();
 }
 
-const DRAW = {
-  sun: drawSun, skyline: drawSkyline, palms: drawPalms,
-  birds: drawBirds, plane: drawPlane, tower: drawTower,
-};
-
-// Draw one panel's decoration. `boundsPx` is the panel bounds in
-// pixels; the caller clips to the polygon before calling.
-export function drawDecor(ctx, boundsPx, seed, panelIndex, ink) {
-  const motifs = motifsFor(seed, panelIndex);
-  if (!motifs.length) return;
-  const stream = rng(seed * 31 + panelIndex * 977 + 5);
+// Full decor for panels without a photo: sun, palms, waves, birds.
+export function drawPanelFullDecor(ctx, b, gradeGlow) {
   ctx.save();
-  ctx.globalAlpha = 0.38;
-  for (const motif of motifs) DRAW[motif](ctx, boundsPx, ink, stream);
+  ctx.strokeStyle = gradeGlow;
+  ctx.fillStyle = gradeGlow;
+  ctx.globalAlpha = 0.85;
+  const s = Math.min(b.w, b.h);
+  drawSunDisc(ctx, b.minX + b.w * 0.5, b.minY + b.h * 0.52, s * 0.3);
+  ctx.globalAlpha = 0.9;
+  drawPalmFrond(ctx, b.minX + s * 0.1, b.maxY - s * 0.05, s * 0.85, false);
+  drawPalmFrond(ctx, b.maxX - s * 0.1, b.maxY - s * 0.05, s * 0.7, true);
+  ctx.globalAlpha = 0.65;
+  drawWaves(ctx, b.minX + b.w * 0.12, b.maxY - b.h * 0.16, b.w * 0.76, 3);
+  drawBirds(ctx, b.minX + b.w * 0.62, b.minY + b.h * 0.18, s * 0.07);
   ctx.restore();
 }
