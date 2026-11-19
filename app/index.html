@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vice Cover Studio — poster cover art maker</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <p class="brand-mark">VICE COVER STUDIO</p>
+    <p class="brand-tag">Turn your photos into multi-panel poster cover art — angled panels, a sunset or neon grade, bold lettering, exported as a PNG.</p>
+  </div>
+  <p class="steps"><span>1 · Add photos</span><span>2 · Arrange the panels</span><span>3 · Export your cover</span></p>
+</header>
+<main class="studio">
+  <aside class="controls">
+    <section class="control-block">
+      <h2>Photos</h2>
+      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Add photos">
+        <p><strong>Drop photos here</strong><br>or click to choose files</p>
+        <input id="fileInput" type="file" accept="image/*" multiple hidden>
+      </div>
+      <div class="sample-row">
+        <span class="sample-label">Try a sample:</span>
+        <div id="sampleButtons" class="sample-buttons"></div>
+      </div>
+      <div id="tray" class="tray" aria-label="Your photos"></div>
+      <p class="hint">Pick a photo, then click a panel — or drag the photo inside a panel to frame it.</p>
+    </section>
+    <section class="control-block">
+      <h2>Layout</h2>
+      <div id="layoutButtons" class="layout-buttons"></div>
+    </section>
+    <section class="control-block">
+      <h2>Panel</h2>
+      <p class="hint" id="panelStatus">No panel selected yet.</p>
+      <label class="slider-row">Zoom
+        <input id="zoom" type="range" min="1" max="3" step="0.01" value="1">
+      </label>
+      <div class="button-row">
+        <button id="fillAll" type="button">Fill all panels</button>
+        <button id="spread" type="button">Spread photos</button>
+        <button id="resetCrop" type="button">Reset crop</button>
+      </div>
+    </section>
+    <section class="control-block">
+      <h2>Look</h2>
+      <div id="gradeButtons" class="grade-buttons"></div>
+      <label class="field">Caption position
+        <select id="captionPos">
+          <option value="bottom">Bottom of the cover</option>
+          <option value="top">Top of the cover</option>
+        </select>
+      </label>
+    </section>
+    <section class="control-block">
+      <h2>Caption</h2>
+      <label class="field">Title
+        <input id="titleInput" type="text" maxlength="26" value="Neon Vice" autocomplete="off">
+      </label>
+      <label class="field">Subtitle
+        <input id="subtitleInput" type="text" maxlength="42" value="Vice Cover Studio" autocomplete="off">
+      </label>
+    </section>
+    <section class="control-block">
+      <h2>Export</h2>
+      <label class="field">Size
+        <select id="sizeSelect"></select>
+      </label>
+      <button id="exportButton" class="export" type="button">Export PNG</button>
+      <p class="hint" id="status" role="status"></p>
+    </section>
+  </aside>
+  <section class="stage">
+    <canvas id="coverCanvas" width="1080" height="1080" aria-label="Your cover, live preview"></canvas>
+    <p class="stage-hint">Live preview — the exported PNG is this exact drawing.</p>
+  </section>
+</main>
+<footer class="foot">
+  <p>An original poster-art tool in a sun-soaked collage style. Not affiliated with Rockstar Games or Take-Two Interactive. Your photos never leave your machine.</p>
+</footer>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
