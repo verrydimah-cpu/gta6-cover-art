@@ -1,8 +1,10 @@
 // Colour grades for VICE COVER STUDIO. A grade is a recipe the renderer applies to every photo panel:
 // a CSS filter string while the photo is drawn (saturation, contrast, brightness), a duotone gradient
 // washed over the panel in 'overlay' blending, the sky colours used behind empty panels, the frame
-// colour of the panel dividers, and the colours the caption lettering is filled with. Three grades
-// ship: the Vice City sunset, a neon night, and a clean daylight look.
+// colour of the panel dividers, and the colours the caption lettering is filled with. Each grade also
+// names a glow colour (the neon divider style and the Neon Glow lettering burn in it) and a neon fill
+// for lettering that wants to look lit from inside. Three grades ship: the Vice City sunset, a neon
+// night, and a clean daylight look.
 
 export const GRADES = {
   sunset: {
@@ -21,6 +23,8 @@ export const GRADES = {
     titleFill: ['#fff6d8', '#ffc93e', '#ff7a3e'],
     subtitle: '#ffe9c9',
     band: 'rgba(24, 6, 44, 0.55)',
+    glow: '#ff2e88',
+    neonFill: ['#fffbe8', '#ffd23e', '#ff5e8a'],
   },
   neon: {
     name: 'Neon Night',
@@ -38,6 +42,8 @@ export const GRADES = {
     titleFill: ['#eafcff', '#4de3ff', '#ff4dd8'],
     subtitle: '#c9f4ff',
     band: 'rgba(2, 4, 26, 0.6)',
+    glow: '#26e6ff',
+    neonFill: ['#f2feff', '#4de3ff', '#ff4dd8'],
   },
   clean: {
     name: 'Clean Daylight',
@@ -55,6 +61,8 @@ export const GRADES = {
     titleFill: ['#ffffff', '#ffe9a8', '#ffb35c'],
     subtitle: '#ffffff',
     band: 'rgba(10, 24, 44, 0.45)',
+    glow: '#ffb35c',
+    neonFill: ['#ffffff', '#ffe9a8', '#ff8a4a'],
   },
 };
 

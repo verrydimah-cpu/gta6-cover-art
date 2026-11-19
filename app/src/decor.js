@@ -1,7 +1,8 @@
 // Procedural decoration for VICE COVER STUDIO: every ornament on a cover is drawn here from paths and
-// gradients — a striped retro sun, a city skyline silhouette with lit windows, palm silhouettes and a
-// halftone dot patch. Nothing is an image file, so the art stays original and works offline. A small
-// seeded random generator keeps the skyline and windows identical on every render.
+// gradients — a striped retro sun, a city skyline silhouette with lit windows, palm silhouettes, a
+// halftone dot patch, distant birds, a small plane and a lifeguard tower. Nothing is an image file,
+// so the art stays original and works offline. A small seeded random generator keeps the skyline,
+// windows and wildlife identical on every render.
 
 /** A deterministic random source (mulberry32), so decorative details never flicker between renders. */
 export function seededRandom(seed) {
@@ -140,10 +141,111 @@ export function drawHalftonePatch(ctx, x, y, w, h, colour, seed) {
   ctx.restore();
 }
 
+/** A distant flock: a handful of tiny gull silhouettes — two arcs meeting at a point — across the sky. */
+export function drawBirds(ctx, x, y, w, colour, seed) {
+  const rand = seededRandom(seed);
+  ctx.save();
+  ctx.strokeStyle = colour;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 5; i++) {
+    const bx = x + rand() * w;
+    const by = y + (rand() - 0.5) * w * 0.16;
+    const s = w * (0.028 + rand() * 0.03);
+    ctx.lineWidth = s * 0.16;
+    ctx.beginPath();
+    ctx.moveTo(bx - s, by);
+    ctx.quadraticCurveTo(bx - s * 0.45, by - s * 0.72, bx, by);
+    ctx.quadraticCurveTo(bx + s * 0.45, by - s * 0.72, bx + s, by);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** A small airliner silhouette in profile: fuselage, swept wing, tail fin and a nose-up attitude. */
+export function drawPlane(ctx, x, y, size, colour, flip = 1) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(flip * size, size);
+  ctx.fillStyle = colour;
+  ctx.beginPath();
+  // Fuselage: a long tapered body, rounded at the nose (right), pinched at the tail (left).
+  ctx.moveTo(-0.5, 0.01);
+  ctx.quadraticCurveTo(-0.52, -0.05, -0.42, -0.055);
+  ctx.lineTo(0.28, -0.075);
+  ctx.quadraticCurveTo(0.47, -0.07, 0.52, -0.01);
+  ctx.quadraticCurveTo(0.47, 0.045, 0.3, 0.055);
+  ctx.lineTo(-0.34, 0.05);
+  ctx.quadraticCurveTo(-0.47, 0.045, -0.5, 0.01);
+  ctx.closePath();
+  // Tail fin rising at the rear, and the horizontal stabiliser below it.
+  ctx.moveTo(-0.5, -0.04);
+  ctx.lineTo(-0.38, -0.05);
+  ctx.lineTo(-0.31, -0.19);
+  ctx.lineTo(-0.24, -0.19);
+  ctx.lineTo(-0.3, -0.05);
+  ctx.closePath();
+  ctx.moveTo(-0.46, 0.04);
+  ctx.lineTo(-0.3, 0.045);
+  ctx.lineTo(-0.24, 0.13);
+  ctx.lineTo(-0.32, 0.13);
+  ctx.closePath();
+  // The near wing, swept back from the middle of the body.
+  ctx.moveTo(0.08, 0.03);
+  ctx.lineTo(-0.06, 0.03);
+  ctx.lineTo(-0.24, 0.21);
+  ctx.lineTo(-0.13, 0.21);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/** A lifeguard tower silhouette: four splayed legs with cross braces, a cabin and a pitched roof. */
+export function drawLifeguardTower(ctx, x, y, size, colour) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(size, size);
+  ctx.fillStyle = colour;
+  ctx.strokeStyle = colour;
+  // Legs splaying from the cabin floor to the sand, with an X of braces between them.
+  ctx.lineWidth = 0.045;
+  ctx.beginPath();
+  ctx.moveTo(-0.3, -0.42);
+  ctx.lineTo(-0.42, 0);
+  ctx.moveTo(0.3, -0.42);
+  ctx.lineTo(0.42, 0);
+  ctx.moveTo(-0.37, -0.2);
+  ctx.lineTo(0.37, -0.2);
+  ctx.moveTo(-0.4, -0.03);
+  ctx.lineTo(0.33, -0.4);
+  ctx.moveTo(0.4, -0.03);
+  ctx.lineTo(-0.33, -0.4);
+  ctx.stroke();
+  // The cabin, its window cut lighter by leaving a gap band, and the pitched roof over it.
+  ctx.fillRect(-0.34, -0.78, 0.68, 0.36);
+  ctx.fillRect(-0.44, -0.86, 0.88, 0.07);
+  ctx.beginPath();
+  ctx.moveTo(-0.46, -0.86);
+  ctx.lineTo(0, -1.04);
+  ctx.lineTo(0.46, -0.86);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
 /** The full decorative scene painted inside an empty panel: sky, sun, skyline and a palm. */
 export function paintEmptyPanelArt(ctx, bounds, grade, seed) {
   paintSky(ctx, bounds.x, bounds.y, bounds.w, bounds.h, grade);
   drawSunDisc(ctx, bounds.x + bounds.w * 0.68, bounds.y + bounds.h * 0.4, bounds.h * 0.26, grade.sun);
   drawSkyline(ctx, bounds.x, bounds.y + bounds.h * 0.55, bounds.w, bounds.h * 0.45, grade, seed);
   drawPalm(ctx, bounds.x + bounds.w * 0.1, bounds.y + bounds.h * 0.99, bounds.h * 0.44, grade.silhouette, 1);
+  // Wildlife and beach furniture along the edges, dealt by a seeded draw so panels differ: birds
+  // cross the upper sky, a plane drifts through some panels, a lifeguard tower watches others.
+  const rand = seededRandom(seed * 13 + 5);
+  drawBirds(ctx, bounds.x + bounds.w * 0.08, bounds.y + bounds.h * 0.16, bounds.w * 0.5, grade.silhouette, seed * 3 + 11);
+  if (rand() > 0.5) {
+    drawPlane(ctx, bounds.x + bounds.w * 0.3, bounds.y + bounds.h * 0.2, bounds.w * 0.17, grade.silhouette, 1);
+  }
+  if (rand() > 0.45) {
+    drawLifeguardTower(ctx, bounds.x + bounds.w * 0.88, bounds.y + bounds.h * 0.99, bounds.h * 0.34, grade.silhouette);
+  }
 }

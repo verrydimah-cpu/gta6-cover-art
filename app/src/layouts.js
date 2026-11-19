@@ -1,8 +1,9 @@
 // Panel layouts for VICE COVER STUDIO. Each layout is a set of polygons in normalised cover coordinates
 // (x and y both run 0..1 across the cover, whatever its pixel size), drawn in order. The polygons share
 // edges exactly, so the renderer can stroke every outline in the frame colour and get the angled,
-// white-divided multi-panel collage of a game poster. Four layouts ship: a five-panel hero collage,
-// a three-panel diagonal, a six-panel grid and a four-panel spotlight.
+// white-divided multi-panel collage of a game poster. Six layouts ship: a five-panel hero collage,
+// a three-panel diagonal, a six-panel grid, a four-panel spotlight, a hero over a three-frame
+// filmstrip, and a magazine split with a tall panel beside a stacked pair.
 
 /** One polygon: a list of [x, y] points in normalised cover coordinates. */
 // typedef PanelPolygon = Array<[number, number]>
@@ -55,6 +56,31 @@ export const LAYOUTS = [
       [[0.7, 0], [1, 0], [1, 0.34], [0.685, 0.34]],
       [[0.685, 0.34], [1, 0.34], [1, 0.67], [0.67, 0.67]],
       [[0.67, 0.67], [1, 0.67], [1, 1], [0.64, 1]],
+    ],
+  },
+  {
+    id: 'filmstrip',
+    name: 'Hero + Filmstrip',
+    blurb: 'One big scene over a three-frame strip',
+    panels: [
+      // The hero scene, its foot slanting down toward the right.
+      [[0, 0], [1, 0], [1, 0.64], [0, 0.58]],
+      // The filmstrip: three frames sharing the hero's slanted top edge.
+      [[0, 0.58], [0.36, 0.6], [0.33, 1], [0, 1]],
+      [[0.36, 0.6], [0.69, 0.62], [0.66, 1], [0.33, 1]],
+      [[0.69, 0.62], [1, 0.64], [1, 1], [0.66, 1]],
+    ],
+  },
+  {
+    id: 'magazine',
+    name: 'Magazine Split',
+    blurb: 'A tall cover panel beside a stacked pair',
+    panels: [
+      // The tall left panel, its right edge leaning in as it falls.
+      [[0, 0], [0.58, 0], [0.54, 1], [0, 1]],
+      // The stacked pair on the right, split where the left edge leans to x = 0.559.
+      [[0.58, 0], [1, 0], [1, 0.52], [0.559, 0.52]],
+      [[0.559, 0.52], [1, 0.52], [1, 1], [0.54, 1]],
     ],
   },
 ];
