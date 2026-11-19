@@ -1,251 +1,198 @@
-// Procedural decoration for VICE COVER STUDIO: every ornament on a cover is drawn here from paths and
-// gradients — a striped retro sun, a city skyline silhouette with lit windows, palm silhouettes, a
-// halftone dot patch, distant birds, a small plane and a lifeguard tower. Nothing is an image file,
-// so the art stays original and works offline. A small seeded random generator keeps the skyline,
-// windows and wildlife identical on every render.
+// decor.js — procedural poster decor for Vice Cover Studio.
+//
+// When a panel has no photo (or behind one, at its edges) the renderer
+// asks this module for a little coastal scene: a retro sun disc cut by
+// slats, a skyline silhouette, filled-leaf palms, distant birds, a
+// plane crossing the sky and a lifeguard tower on the sand line. All of
+// it is drawn with canvas paths — no image assets — and everything is
+// placed from a seeded random stream so a given cover renders the same
+// way every time, on the preview and on the export alike.
 
-/** A deterministic random source (mulberry32), so decorative details never flicker between renders. */
-export function seededRandom(seed) {
-  let a = seed >>> 0;
+// Small deterministic PRNG (mulberry32). The seed is folded from the
+// panel index and a salt the caller picks, so decor is stable per
+// panel but different between panels.
+export function seeded(seed) {
+  let t = (seed >>> 0) || 1;
   return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    t += 0x6d2b79f5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
 }
 
-/** Fills a rectangle with the grade's sky: a vertical gradient through its colour stops. */
-export function paintSky(ctx, x, y, w, h, grade) {
-  const gradient = ctx.createLinearGradient(0, y, 0, y + h);
-  const stops = grade.sky;
-  stops.forEach((colour, i) => gradient.addColorStop(i / (stops.length - 1), colour));
-  ctx.fillStyle = gradient;
-  ctx.fillRect(x, y, w, h);
-}
-
-/** A retro sun disc: a filled circle cut by widening horizontal slits toward its foot. */
-export function drawSunDisc(ctx, cx, cy, r, colour) {
-  ctx.save();
+function pathPoly(ctx, poly, W, H) {
   ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.clip();
-  ctx.fillStyle = colour;
-  ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
-  // Slits are cleared with destination-out, growing taller toward the bottom of the disc.
-  ctx.globalCompositeOperation = 'destination-out';
-  let slitY = cy + r * 0.08;
-  let slitH = r * 0.03;
-  while (slitY < cy + r) {
-    ctx.fillRect(cx - r, slitY, r * 2, slitH);
-    slitY += slitH + r * 0.09;
-    slitH *= 1.45;
-  }
-  ctx.restore();
+  poly.forEach(([x, y], i) => (i ? ctx.lineTo(x * W, y * H) : ctx.moveTo(x * W, y * H)));
+  ctx.closePath();
 }
 
-/** A skyline silhouette along the foot of a rectangle: uneven towers with a scatter of lit windows. */
-export function drawSkyline(ctx, x, y, w, h, grade, seed) {
-  const rand = seededRandom(seed);
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(x, y, w, h);
-  ctx.clip();
-  ctx.fillStyle = grade.silhouette;
-  let cursor = x - w * 0.02;
-  const base = y + h;
-  const towers = [];
-  while (cursor < x + w) {
-    const towerW = w * (0.05 + rand() * 0.09);
-    const towerH = h * (0.3 + rand() * 0.62);
-    ctx.fillRect(cursor, base - towerH, towerW, towerH);
-    if (rand() > 0.6) ctx.fillRect(cursor + towerW * 0.35, base - towerH - h * 0.08, towerW * 0.3, h * 0.08);
-    towers.push([cursor, base - towerH, towerW, towerH]);
-    cursor += towerW + w * (0.005 + rand() * 0.02);
-  }
-  // Lit windows: tiny warm rectangles dotted over the towers.
-  ctx.fillStyle = 'rgba(255, 214, 120, 0.85)';
-  for (const [tx, ty, tw, th] of towers) {
-    const cols = Math.max(1, Math.floor(tw / (w * 0.02)));
-    const rows = Math.max(1, Math.floor(th / (h * 0.09)));
-    for (let c = 0; c < cols; c++) {
-      for (let r = 0; r < rows; r++) {
-        if (rand() > 0.42) continue;
-        ctx.fillRect(tx + (c + 0.3) * (tw / cols), ty + (r + 0.3) * (th / rows), tw / cols * 0.4, th / rows * 0.4);
-      }
-    }
-  }
-  ctx.restore();
-}
-
-/** One palm silhouette: a tapered trunk, a crown of filled drooping fronds and two coconuts. */
-export function drawPalm(ctx, x, y, size, colour, flip = 1) {
+// A palm frond: a curved rib with filled leaflets, drawn as one filled
+// shape so it reads as a silhouette at any size.
+function frond(ctx, x, y, len, angle, width, colour) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.scale(flip * size, size);
+  ctx.rotate(angle);
   ctx.fillStyle = colour;
-  // Trunk: a filled, tapered curve leaning as it rises to the crown.
   ctx.beginPath();
-  ctx.moveTo(-0.05, 0);
-  ctx.quadraticCurveTo(0.02, -0.5, 0.3, -0.9);
-  ctx.lineTo(0.39, -0.9);
-  ctx.quadraticCurveTo(0.17, -0.48, 0.05, 0);
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(len * 0.5, -width * 1.6, len, width * 0.4);
+  ctx.quadraticCurveTo(len * 0.55, width * 0.5, 0, width * 0.55);
   ctx.closePath();
   ctx.fill();
-  // Fronds: filled tapered leaves fanning from the crown, each drooping at its tip.
-  const crownX = 0.345;
-  const crownY = -0.9;
-  for (let i = 0; i < 9; i++) {
-    const t = i / 8;
-    const angle = Math.PI * (0.05 + t * 0.9);
-    const len = 0.44 + Math.sin(t * Math.PI) * 0.16;
-    const tipX = crownX + Math.cos(angle) * len;
-    const tipY = crownY - Math.sin(angle) * len * 0.6 + len * len * 0.52;
-    const midX = crownX + Math.cos(angle) * len * 0.52;
-    const midY = crownY - Math.sin(angle) * len * 0.52;
-    const nx = -(tipY - crownY);
-    const ny = tipX - crownX;
-    const nl = Math.hypot(nx, ny) || 1;
-    const ox = (nx / nl) * 0.034;
-    const oy = (ny / nl) * 0.034;
+  // leaflet cuts along the rib
+  ctx.globalCompositeOperation = 'destination-out';
+  for (let i = 1; i <= 5; i++) {
+    const t = i / 6;
     ctx.beginPath();
-    ctx.moveTo(crownX + ox, crownY + oy);
-    ctx.quadraticCurveTo(midX + ox * 0.6, midY + oy * 0.6, tipX, tipY);
-    ctx.quadraticCurveTo(midX - ox * 0.6, midY - oy * 0.6, crownX - ox, crownY - oy);
+    ctx.moveTo(len * t, width * (0.4 - t * 0.2));
+    ctx.lineTo(len * (t + 0.09), width * 1.1);
+    ctx.lineTo(len * (t + 0.16), width * (0.35 - t * 0.2));
     ctx.closePath();
     ctx.fill();
   }
-  ctx.beginPath();
-  ctx.arc(0.3, -0.855, 0.043, 0, Math.PI * 2);
-  ctx.arc(0.4, -0.84, 0.036, 0, Math.PI * 2);
-  ctx.fill();
   ctx.restore();
+  ctx.globalCompositeOperation = 'source-over';
 }
 
-/** A halftone patch: rows of dots that shrink toward one corner, a print-shop accent for a corner. */
-export function drawHalftonePatch(ctx, x, y, w, h, colour, seed) {
-  const rand = seededRandom(seed);
+export function drawPalm(ctx, x, y, s, colour, lean = 0.22) {
   ctx.save();
-  ctx.fillStyle = colour;
-  const step = w / 9;
-  for (let row = 0; row < 7; row++) {
-    for (let col = 0; col < 9; col++) {
-      const fade = 1 - (col + row) / 15;
-      const r = step * 0.34 * Math.max(0, fade) * (0.85 + rand() * 0.3);
-      if (r < 0.4) continue;
-      ctx.beginPath();
-      ctx.arc(x + col * step + step / 2, y + row * step + step / 2, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
+  ctx.strokeStyle = colour;
+  ctx.lineWidth = s * 0.09;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.quadraticCurveTo(x + s * lean * 0.4, y - s * 0.6, x + s * lean, y - s);
+  ctx.stroke();
+  const topX = x + s * lean, topY = y - s;
+  for (let i = 0; i < 6; i++) {
+    frond(ctx, topX, topY, s * (0.62 + (i % 3) * 0.1), -2.6 + i * 0.52, s * 0.1, colour);
   }
   ctx.restore();
 }
 
-/** A distant flock: a handful of tiny gull silhouettes — two arcs meeting at a point — across the sky. */
-export function drawBirds(ctx, x, y, w, colour, seed) {
-  const rand = seededRandom(seed);
+export function drawSun(ctx, cx, cy, r, colour, bandColour) {
   ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = colour;
+  ctx.fill();
+  // slats cut across the lower half, widening as they fall
+  ctx.globalCompositeOperation = 'destination-out';
+  let gap = r * 0.05;
+  for (let y = cy + r * 0.08; y < cy + r; y += gap * 2.4) {
+    ctx.fillRect(cx - r, y, r * 2, gap);
+    gap *= 1.45;
+  }
+  ctx.restore();
+  ctx.globalCompositeOperation = 'source-over';
+  void bandColour;
+}
+
+export function drawSkyline(ctx, baseY, W, H, colour, rand) {
+  ctx.fillStyle = colour;
+  let x = -W * 0.02;
+  while (x < W * 1.02) {
+    const bw = W * (0.04 + rand() * 0.07);
+    const bh = H * (0.1 + rand() * 0.26);
+    ctx.fillRect(x, baseY - bh, bw, bh);
+    if (rand() > 0.6) ctx.fillRect(x + bw * 0.3, baseY - bh - H * 0.03, bw * 0.16, H * 0.03); // rooftop block
+    x += bw + W * (0.005 + rand() * 0.02);
+  }
+  ctx.fillRect(0, baseY, W, H - baseY + 2);
+}
+
+export function drawBirds(ctx, x, y, s, colour, count) {
   ctx.strokeStyle = colour;
+  ctx.lineWidth = Math.max(1.2, s * 0.08);
   ctx.lineCap = 'round';
-  for (let i = 0; i < 5; i++) {
-    const bx = x + rand() * w;
-    const by = y + (rand() - 0.5) * w * 0.16;
-    const s = w * (0.028 + rand() * 0.03);
-    ctx.lineWidth = s * 0.16;
+  for (let i = 0; i < count; i++) {
+    const bx = x + i * s * 1.7, by = y + (i % 2) * s * 0.5;
     ctx.beginPath();
-    ctx.moveTo(bx - s, by);
-    ctx.quadraticCurveTo(bx - s * 0.45, by - s * 0.72, bx, by);
-    ctx.quadraticCurveTo(bx + s * 0.45, by - s * 0.72, bx + s, by);
+    ctx.moveTo(bx - s * 0.5, by);
+    ctx.quadraticCurveTo(bx - s * 0.15, by - s * 0.45, bx, by);
+    ctx.quadraticCurveTo(bx + s * 0.15, by - s * 0.45, bx + s * 0.5, by);
     ctx.stroke();
   }
-  ctx.restore();
 }
 
-/** A small airliner silhouette in profile: fuselage, swept wing, tail fin and a nose-up attitude. */
-export function drawPlane(ctx, x, y, size, colour, flip = 1) {
+export function drawPlane(ctx, x, y, s, colour) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.scale(flip * size, size);
   ctx.fillStyle = colour;
-  ctx.beginPath();
-  // Fuselage: a long tapered body, rounded at the nose (right), pinched at the tail (left).
-  ctx.moveTo(-0.5, 0.01);
-  ctx.quadraticCurveTo(-0.52, -0.05, -0.42, -0.055);
-  ctx.lineTo(0.28, -0.075);
-  ctx.quadraticCurveTo(0.47, -0.07, 0.52, -0.01);
-  ctx.quadraticCurveTo(0.47, 0.045, 0.3, 0.055);
-  ctx.lineTo(-0.34, 0.05);
-  ctx.quadraticCurveTo(-0.47, 0.045, -0.5, 0.01);
+  ctx.beginPath(); // fuselage
+  ctx.ellipse(0, 0, s, s * 0.16, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath(); // main wing
+  ctx.moveTo(-s * 0.05, 0);
+  ctx.lineTo(-s * 0.42, s * 0.52);
+  ctx.lineTo(-s * 0.12, s * 0.52);
+  ctx.lineTo(s * 0.18, 0);
   ctx.closePath();
-  // Tail fin rising at the rear, and the horizontal stabiliser below it.
-  ctx.moveTo(-0.5, -0.04);
-  ctx.lineTo(-0.38, -0.05);
-  ctx.lineTo(-0.31, -0.19);
-  ctx.lineTo(-0.24, -0.19);
-  ctx.lineTo(-0.3, -0.05);
-  ctx.closePath();
-  ctx.moveTo(-0.46, 0.04);
-  ctx.lineTo(-0.3, 0.045);
-  ctx.lineTo(-0.24, 0.13);
-  ctx.lineTo(-0.32, 0.13);
-  ctx.closePath();
-  // The near wing, swept back from the middle of the body.
-  ctx.moveTo(0.08, 0.03);
-  ctx.lineTo(-0.06, 0.03);
-  ctx.lineTo(-0.24, 0.21);
-  ctx.lineTo(-0.13, 0.21);
+  ctx.fill();
+  ctx.beginPath(); // tail fin
+  ctx.moveTo(-s * 0.82, -s * 0.05);
+  ctx.lineTo(-s * 0.98, -s * 0.4);
+  ctx.lineTo(-s * 0.66, -s * 0.4);
+  ctx.lineTo(-s * 0.55, -s * 0.02);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
 }
 
-/** A lifeguard tower silhouette: four splayed legs with cross braces, a cabin and a pitched roof. */
-export function drawLifeguardTower(ctx, x, y, size, colour) {
+export function drawTower(ctx, x, baseY, s, colour) {
   ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(size, size);
   ctx.fillStyle = colour;
   ctx.strokeStyle = colour;
-  // Legs splaying from the cabin floor to the sand, with an X of braces between them.
-  ctx.lineWidth = 0.045;
+  ctx.lineWidth = s * 0.07;
+  // legs
   ctx.beginPath();
-  ctx.moveTo(-0.3, -0.42);
-  ctx.lineTo(-0.42, 0);
-  ctx.moveTo(0.3, -0.42);
-  ctx.lineTo(0.42, 0);
-  ctx.moveTo(-0.37, -0.2);
-  ctx.lineTo(0.37, -0.2);
-  ctx.moveTo(-0.4, -0.03);
-  ctx.lineTo(0.33, -0.4);
-  ctx.moveTo(0.4, -0.03);
-  ctx.lineTo(-0.33, -0.4);
+  ctx.moveTo(x - s * 0.3, baseY); ctx.lineTo(x - s * 0.12, baseY - s * 0.55);
+  ctx.moveTo(x + s * 0.3, baseY); ctx.lineTo(x + s * 0.12, baseY - s * 0.55);
+  ctx.moveTo(x - s * 0.24, baseY - s * 0.28); ctx.lineTo(x + s * 0.24, baseY - s * 0.28);
   ctx.stroke();
-  // The cabin, its window cut lighter by leaving a gap band, and the pitched roof over it.
-  ctx.fillRect(-0.34, -0.78, 0.68, 0.36);
-  ctx.fillRect(-0.44, -0.86, 0.88, 0.07);
+  // hut and pitched roof
+  ctx.fillRect(x - s * 0.3, baseY - s * 0.92, s * 0.6, s * 0.38);
   ctx.beginPath();
-  ctx.moveTo(-0.46, -0.86);
-  ctx.lineTo(0, -1.04);
-  ctx.lineTo(0.46, -0.86);
+  ctx.moveTo(x - s * 0.4, baseY - s * 0.92);
+  ctx.lineTo(x, baseY - s * 1.14);
+  ctx.lineTo(x + s * 0.4, baseY - s * 0.92);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
 }
 
-/** The full decorative scene painted inside an empty panel: sky, sun, skyline and a palm. */
-export function paintEmptyPanelArt(ctx, bounds, grade, seed) {
-  paintSky(ctx, bounds.x, bounds.y, bounds.w, bounds.h, grade);
-  drawSunDisc(ctx, bounds.x + bounds.w * 0.68, bounds.y + bounds.h * 0.4, bounds.h * 0.26, grade.sun);
-  drawSkyline(ctx, bounds.x, bounds.y + bounds.h * 0.55, bounds.w, bounds.h * 0.45, grade, seed);
-  drawPalm(ctx, bounds.x + bounds.w * 0.1, bounds.y + bounds.h * 0.99, bounds.h * 0.44, grade.silhouette, 1);
-  // Wildlife and beach furniture along the edges, dealt by a seeded draw so panels differ: birds
-  // cross the upper sky, a plane drifts through some panels, a lifeguard tower watches others.
-  const rand = seededRandom(seed * 13 + 5);
-  drawBirds(ctx, bounds.x + bounds.w * 0.08, bounds.y + bounds.h * 0.16, bounds.w * 0.5, grade.silhouette, seed * 3 + 11);
-  if (rand() > 0.5) {
-    drawPlane(ctx, bounds.x + bounds.w * 0.3, bounds.y + bounds.h * 0.2, bounds.w * 0.17, grade.silhouette, 1);
-  }
-  if (rand() > 0.45) {
-    drawLifeguardTower(ctx, bounds.x + bounds.w * 0.88, bounds.y + bounds.h * 0.99, bounds.h * 0.34, grade.silhouette);
-  }
+// Paint the full backdrop for one panel inside its (already clipped)
+// bounding box: graded sky, a slatted sun, skyline, then the edge decor
+// chosen by the seeded stream. bx/by/bw/bh are pixel bounds.
+export function drawBackdrop(ctx, grade, bx, by, bw, bh, panelIndex) {
+  const rand = seeded(1237 + panelIndex * 977);
+  const sky = ctx.createLinearGradient(0, by, 0, by + bh);
+  sky.addColorStop(0, grade.sky[0]);
+  sky.addColorStop(1, grade.sky[1]);
+  ctx.fillStyle = sky;
+  ctx.fillRect(bx, by, bw, bh);
+  const horizon = by + bh * (0.62 + rand() * 0.1);
+  drawSun(ctx, bx + bw * (0.3 + rand() * 0.4), by + bh * (0.3 + rand() * 0.14), Math.min(bw, bh) * 0.26, grade.sun);
+  drawSkyline(ctx, horizon, bx + bw, bh * 0.9, grade.silhouette, rand);
+  ctx.fillStyle = grade.silhouette;
+  ctx.fillRect(bx, horizon, bw, by + bh - horizon);
+  drawPalm(ctx, bx + bw * 0.08, by + bh * 1.0, bh * 0.52, grade.silhouette, 0.3);
+  drawPalm(ctx, bx + bw * 0.97, by + bh * 1.0, bh * 0.44, grade.silhouette, -0.34);
+  drawBirds(ctx, bx + bw * (0.55 + rand() * 0.2), by + bh * (0.1 + rand() * 0.08), bw * 0.035, grade.silhouette, 3);
+  if (rand() > 0.45) drawPlane(ctx, bx + bw * (0.2 + rand() * 0.5), by + bh * 0.16, bw * 0.06, grade.silhouette);
+  if (rand() > 0.5) drawTower(ctx, bx + bw * (0.68 + rand() * 0.18), by + bh * 0.99, bh * 0.2, grade.silhouette);
+  void pathPoly;
+}
+
+// Light corner dressing over a photo panel: palm leaves reaching in
+// from a top corner and a few birds, kept strictly to the edges so a
+// face in the middle of the panel is never crossed.
+export function drawCornerDressing(ctx, grade, bx, by, bw, bh, panelIndex) {
+  const rand = seeded(551 + panelIndex * 331);
+  ctx.save();
+  ctx.globalAlpha = 0.85;
+  if (rand() > 0.35) drawPalm(ctx, bx + bw * 0.02, by + bh * 0.34, bh * 0.34, grade.silhouette, 0.5);
+  if (rand() > 0.55) drawPalm(ctx, bx + bw * 1.0, by + bh * 0.3, bh * 0.27, grade.silhouette, -0.55);
+  if (rand() > 0.4) drawBirds(ctx, bx + bw * (0.6 + rand() * 0.18), by + bh * 0.07, bw * 0.028, grade.silhouette, 2);
+  ctx.restore();
 }

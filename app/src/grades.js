@@ -1,92 +1,102 @@
-// Colour grades for VICE COVER STUDIO. A grade is a recipe the renderer applies to every photo panel:
-// a CSS filter string while the photo is drawn (saturation, contrast, brightness), a duotone gradient
-// washed over the panel in 'overlay' blending, the sky colours used behind empty panels, the frame
-// colour of the panel dividers, and the colours the caption lettering is filled with. Each grade also
-// names a glow colour (the neon divider style and the Neon Glow lettering burn in it) and a neon fill
-// for lettering that wants to look lit from inside. Four grades ship: the Vice City sunset, a
-// golden-hour film look, a neon night, and a clean daylight look.
+// grades.js — the four colour grades of Vice Cover Studio.
+//
+// A grade is a complete little colour script for a cover: the filter
+// applied to each photo while it is drawn, a duotone wash that melts
+// over the panels, the sky and sun colours used by the procedural
+// backdrops, the frame and caption colours, and the gradient stops for
+// the lettering. Everything is plain data so the renderer stays honest
+// and the editor can offer a grade as a single click.
 
 export const GRADES = {
-  sunset: {
+  vice: {
+    id: 'vice',
     name: 'Vice Sunset',
-    filter: 'saturate(1.46) contrast(1.13) brightness(1.03)',
-    // Duotone wash, top to bottom: violet dusk, clear middle, hot coral foot.
+    sat: 1.46, con: 1.13, bri: 1.03, sep: 0,
     wash: [
-      [0, 'rgba(58, 26, 128, 0.62)'],
-      [0.45, 'rgba(255, 94, 58, 0.10)'],
-      [1, 'rgba(255, 38, 128, 0.55)'],
+      [0.0, 'rgba(58,26,128,0.62)'],
+      [0.52, 'rgba(58,26,128,0.0)'],
+      [1.0, 'rgba(255,38,128,0.55)'],
     ],
-    sky: ['#2a1660', '#7a1e6e', '#e8487a', '#ff8a4a', '#ffc93e'],
-    sun: '#ffd23e',
+    sky: ['#2a1660', '#ffc93e'],
+    sun: '#ffd76a',
     silhouette: '#1c0f38',
     frame: '#f7ead9',
-    titleFill: ['#fff6d8', '#ffc93e', '#ff7a3e'],
-    subtitle: '#ffe9c9',
-    band: 'rgba(24, 6, 44, 0.55)',
+    titleFill: ['#ffe259', '#ffa751', '#ff2e88', '#7b2ff7'],
+    subtitle: '#ffe9f4',
+    band: 'rgba(20,6,44,0.55)',
     glow: '#ff2e88',
-    neonFill: ['#fffbe8', '#ffd23e', '#ff5e8a'],
-  },
-  golden: {
-    name: 'Golden Hour',
-    filter: 'saturate(1.24) contrast(1.09) brightness(1.03) sepia(0.16)',
-    // Duotone wash: teal settles into the shadows up top, amber light floods the foot — the
-    // split-tone of a late-afternoon film still.
-    wash: [
-      [0, 'rgba(14, 70, 78, 0.48)'],
-      [0.5, 'rgba(255, 186, 105, 0.08)'],
-      [1, 'rgba(255, 148, 56, 0.46)'],
-    ],
-    sky: ['#173f4d', '#2e6f73', '#79a98e', '#e8b96a', '#ffd98a'],
-    sun: '#ffc46a',
-    silhouette: '#12333d',
-    frame: '#fbeed3',
-    titleFill: ['#fff8e2', '#ffd98a', '#ff9e4f'],
-    subtitle: '#ffedcb',
-    band: 'rgba(24, 26, 10, 0.5)',
-    glow: '#ffb35c',
-    neonFill: ['#fffbe8', '#ffd98a', '#ff9e4f'],
+    neonFill: ['#aefcff', '#26e6ff', '#ff2e88'],
   },
   neon: {
+    id: 'neon',
     name: 'Neon Night',
-    filter: 'saturate(1.5) contrast(1.16) brightness(0.96)',
-    // Duotone wash: electric cyan over a magenta underglow.
+    sat: 1.5, con: 1.16, bri: 0.96, sep: 0,
     wash: [
-      [0, 'rgba(0, 190, 255, 0.42)'],
-      [0.5, 'rgba(20, 0, 60, 0.12)'],
-      [1, 'rgba(255, 0, 150, 0.52)'],
+      [0.0, 'rgba(38,230,255,0.38)'],
+      [0.5, 'rgba(10,10,40,0.05)'],
+      [1.0, 'rgba(255,38,200,0.54)'],
     ],
-    sky: ['#04041c', '#0d1440', '#3a1060', '#8a1470', '#ff2e88'],
-    sun: '#7df9ff',
-    silhouette: '#05030f',
-    frame: '#dfe9ff',
-    titleFill: ['#eafcff', '#4de3ff', '#ff4dd8'],
-    subtitle: '#c9f4ff',
-    band: 'rgba(2, 4, 26, 0.6)',
+    sky: ['#050914', '#123a6e'],
+    sun: '#26e6ff',
+    silhouette: '#04060f',
+    frame: '#dff8ff',
+    titleFill: ['#aefcff', '#26e6ff', '#7b2ff7', '#ff2ec4'],
+    subtitle: '#d8fbff',
+    band: 'rgba(2,6,20,0.62)',
     glow: '#26e6ff',
-    neonFill: ['#f2feff', '#4de3ff', '#ff4dd8'],
+    neonFill: ['#ffffff', '#26e6ff', '#ff2ec4'],
   },
   clean: {
+    id: 'clean',
     name: 'Clean Daylight',
-    filter: 'saturate(1.12) contrast(1.05) brightness(1.04)',
-    // A whisper of warm light, nothing more.
+    sat: 1.12, con: 1.05, bri: 1.06, sep: 0.05,
     wash: [
-      [0, 'rgba(70, 120, 200, 0.16)'],
-      [0.6, 'rgba(255, 255, 255, 0.02)'],
-      [1, 'rgba(255, 170, 80, 0.18)'],
+      [0.0, 'rgba(255,214,150,0.16)'],
+      [0.55, 'rgba(255,255,255,0.0)'],
+      [1.0, 'rgba(255,170,90,0.14)'],
     ],
-    sky: ['#274b8f', '#4d84c4', '#8fc3e8', '#d9ecf7', '#ffe9bd'],
+    sky: ['#7ec8f7', '#eaf7ff'],
     sun: '#fff3b0',
-    silhouette: '#27435f',
+    silhouette: '#274b63',
     frame: '#ffffff',
-    titleFill: ['#ffffff', '#ffe9a8', '#ffb35c'],
+    titleFill: ['#ffffff', '#ffe9b8', '#ffb347'],
     subtitle: '#ffffff',
-    band: 'rgba(10, 24, 44, 0.45)',
-    glow: '#ffb35c',
-    neonFill: ['#ffffff', '#ffe9a8', '#ff8a4a'],
+    band: 'rgba(10,30,50,0.42)',
+    glow: '#ffb347',
+    neonFill: ['#ffffff', '#bffcff', '#ffb347'],
+  },
+  golden: {
+    id: 'golden',
+    name: 'Golden Hour',
+    sat: 1.22, con: 1.09, bri: 1.02, sep: 0.16,
+    wash: [
+      [0.0, 'rgba(14,70,78,0.48)'],
+      [0.5, 'rgba(14,70,78,0.0)'],
+      [1.0, 'rgba(255,148,56,0.46)'],
+    ],
+    sky: ['#14424e', '#ffb056'],
+    sun: '#ffcf7d',
+    silhouette: '#12303a',
+    frame: '#fdf3df',
+    titleFill: ['#fff0c0', '#ffb056', '#ff7847'],
+    subtitle: '#fff4dc',
+    band: 'rgba(24,20,8,0.5)',
+    glow: '#ff9438',
+    neonFill: ['#fff6d8', '#ffb056', '#ff5e3a'],
   },
 };
 
-/** The grade with the given id, or the sunset grade when the id is unknown. */
-export function gradeById(id) {
-  return GRADES[id] ?? GRADES.sunset;
+export const GRADE_ORDER = ['vice', 'neon', 'clean', 'golden'];
+
+// Build the canvas filter string for a grade at a given punch (1 = as
+// authored). Punch pushes saturation and contrast away from neutral.
+export function filterFor(grade, punch = 1) {
+  const push = (v) => 1 + (v - 1) * punch;
+  const parts = [
+    `saturate(${push(grade.sat).toFixed(3)})`,
+    `contrast(${push(grade.con).toFixed(3)})`,
+    `brightness(${push(grade.bri).toFixed(3)})`,
+  ];
+  if (grade.sep > 0) parts.push(`sepia(${(grade.sep * punch).toFixed(3)})`);
+  return parts.join(' ');
 }

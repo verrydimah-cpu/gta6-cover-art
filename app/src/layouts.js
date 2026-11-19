@@ -1,114 +1,114 @@
-// Panel layouts for VICE COVER STUDIO. Each layout is a set of polygons in normalised cover coordinates
-// (x and y both run 0..1 across the cover, whatever its pixel size), drawn in order. The polygons share
-// edges exactly, so the renderer can stroke every outline in the frame colour and get the angled,
-// white-divided multi-panel collage of a game poster. Six layouts ship: a five-panel hero collage,
-// a three-panel diagonal, a six-panel grid, a four-panel spotlight, a hero over a three-frame
-// filmstrip, and a magazine split with a tall panel beside a stacked pair.
+// layouts.js — the six panel layouts of Vice Cover Studio.
+//
+// Each layout is a set of polygons in normalised cover coordinates
+// (0..1 on both axes, y down). Panels lean on diagonals so the dividers
+// drawn between them read as poster collage rather than a spreadsheet
+// grid. The renderer clips each polygon, paints the panel's photo (or
+// its procedural backdrop) inside, then strokes the outline with the
+// chosen divider style.
 
-/** One polygon: a list of [x, y] points in normalised cover coordinates. */
-// typedef PanelPolygon = Array<[number, number]>
+const P = (x, y) => [x, y];
 
-export const LAYOUTS = [
-  {
+export const LAYOUTS = {
+  hero: {
     id: 'hero',
     name: 'Hero Collage',
-    blurb: 'Five panels — one big scene over a three-way split',
     panels: [
-      // The hero panel, top left, with a slanted foot.
-      [[0, 0], [0.66, 0], [0.6, 0.52], [0, 0.52]],
-      // Top right, sharing the hero panel's slanted divider.
-      [[0.66, 0], [1, 0], [1, 0.52], [0.6, 0.52]],
-      // Bottom row: three panels split by slanted uprights.
-      [[0, 0.52], [0.38, 0.52], [0.33, 1], [0, 1]],
-      [[0.38, 0.52], [0.71, 0.52], [0.66, 1], [0.33, 1]],
-      [[0.71, 0.52], [1, 0.52], [1, 1], [0.66, 1]],
+      [P(0, 0), P(0.62, 0), P(0.5, 1), P(0, 1)],
+      [P(0.62, 0), P(1, 0), P(1, 0.34), P(0.56, 0.4)],
+      [P(0.56, 0.4), P(1, 0.34), P(1, 0.64), P(0.53, 0.68)],
+      [P(0.53, 0.68), P(1, 0.64), P(1, 1), P(0.5, 1)],
+      [P(0, 0), P(0.62, 0), P(0.6, 0.1), P(0, 0.08)],
     ],
   },
-  {
+  trio: {
     id: 'trio',
     name: 'Diagonal Trio',
-    blurb: 'Three wide bands cut on the diagonal',
     panels: [
-      [[0, 0], [1, 0], [1, 0.22], [0, 0.55]],
-      [[0, 0.55], [1, 0.22], [1, 0.6], [0, 0.95]],
-      [[0, 0.95], [1, 0.6], [1, 1], [0, 1]],
+      [P(0, 0), P(0.44, 0), P(0.3, 1), P(0, 1)],
+      [P(0.44, 0), P(0.74, 0), P(0.62, 1), P(0.3, 1)],
+      [P(0.74, 0), P(1, 0), P(1, 1), P(0.62, 1)],
     ],
   },
-  {
+  grid: {
     id: 'grid',
     name: 'Grid Six',
-    blurb: 'Six panels in two rows, uprights leaning',
     panels: [
-      [[0, 0], [0.36, 0], [0.34, 0.52], [0, 0.52]],
-      [[0.36, 0], [0.69, 0], [0.67, 0.52], [0.34, 0.52]],
-      [[0.69, 0], [1, 0], [1, 0.52], [0.67, 0.52]],
-      [[0, 0.52], [0.34, 0.52], [0.32, 1], [0, 1]],
-      [[0.34, 0.52], [0.67, 0.52], [0.65, 1], [0.32, 1]],
-      [[0.67, 0.52], [1, 0.52], [1, 1], [0.65, 1]],
+      [P(0, 0), P(0.5, 0), P(0.5, 0.5), P(0, 0.5)],
+      [P(0.5, 0), P(1, 0), P(1, 0.5), P(0.5, 0.5)],
+      [P(0, 0.5), P(0.5, 0.5), P(0.5, 0.76), P(0, 0.76)],
+      [P(0.5, 0.5), P(1, 0.5), P(1, 0.76), P(0.5, 0.76)],
+      [P(0, 0.76), P(0.5, 0.76), P(0.5, 1), P(0, 1)],
+      [P(0.5, 0.76), P(1, 0.76), P(1, 1), P(0.5, 1)],
     ],
   },
-  {
+  spotlight: {
     id: 'spotlight',
     name: 'Spotlight',
-    blurb: 'One tall star panel beside a three-high stack',
     panels: [
-      [[0, 0], [0.7, 0], [0.64, 1], [0, 1]],
-      [[0.7, 0], [1, 0], [1, 0.34], [0.685, 0.34]],
-      [[0.685, 0.34], [1, 0.34], [1, 0.67], [0.67, 0.67]],
-      [[0.67, 0.67], [1, 0.67], [1, 1], [0.64, 1]],
+      [P(0.1, 0), P(0.9, 0), P(1, 1), P(0, 1)],
+      [P(0, 0), P(0.1, 0), P(0, 1)],
+      [P(0.9, 0), P(1, 0), P(1, 1)],
     ],
   },
-  {
+  filmstrip: {
     id: 'filmstrip',
     name: 'Hero + Filmstrip',
-    blurb: 'One big scene over a three-frame strip',
     panels: [
-      // The hero scene, its foot slanting down toward the right.
-      [[0, 0], [1, 0], [1, 0.64], [0, 0.58]],
-      // The filmstrip: three frames sharing the hero's slanted top edge.
-      [[0, 0.58], [0.36, 0.6], [0.33, 1], [0, 1]],
-      [[0.36, 0.6], [0.69, 0.62], [0.66, 1], [0.33, 1]],
-      [[0.69, 0.62], [1, 0.64], [1, 1], [0.66, 1]],
+      [P(0, 0), P(1, 0), P(1, 0.66), P(0, 0.66)],
+      [P(0, 0.66), P(0.25, 0.66), P(0.25, 1), P(0, 1)],
+      [P(0.25, 0.66), P(0.5, 0.66), P(0.5, 1), P(0.25, 1)],
+      [P(0.5, 0.66), P(0.75, 0.66), P(0.75, 1), P(0.5, 1)],
+      [P(0.75, 0.66), P(1, 0.66), P(1, 1), P(0.75, 1)],
     ],
   },
-  {
+  magazine: {
     id: 'magazine',
     name: 'Magazine Split',
-    blurb: 'A tall cover panel beside a stacked pair',
     panels: [
-      // The tall left panel, its right edge leaning in as it falls.
-      [[0, 0], [0.58, 0], [0.54, 1], [0, 1]],
-      // The stacked pair on the right, split where the left edge leans to x = 0.559.
-      [[0.58, 0], [1, 0], [1, 0.52], [0.559, 0.52]],
-      [[0.559, 0.52], [1, 0.52], [1, 1], [0.54, 1]],
+      [P(0, 0), P(0.58, 0), P(0.52, 1), P(0, 1)],
+      [P(0.58, 0), P(1, 0), P(1, 1), P(0.52, 1)],
     ],
   },
-];
+};
 
-/** The layout with the given id, or the first layout when the id is unknown. */
-export function layoutById(id) {
-  return LAYOUTS.find((layout) => layout.id === id) ?? LAYOUTS[0];
+export const LAYOUT_ORDER = ['hero', 'trio', 'grid', 'spotlight', 'filmstrip', 'magazine'];
+
+// Polygon area in normalised units — auto-arrange deals the biggest
+// photos into the biggest panels.
+export function panelArea(poly) {
+  let a = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const [x1, y1] = poly[i];
+    const [x2, y2] = poly[(i + 1) % poly.length];
+    a += x1 * y2 - x2 * y1;
+  }
+  return Math.abs(a / 2);
 }
 
-/** The axis-aligned bounding box of a polygon, in the same coordinates. */
-export function polygonBounds(polygon) {
-  let minX = 1, minY = 1, maxX = 0, maxY = 0;
-  for (const [x, y] of polygon) {
-    if (x < minX) minX = x;
-    if (y < minY) minY = y;
-    if (x > maxX) maxX = x;
-    if (y > maxY) maxY = y;
+export function panelBBox(poly) {
+  let x0 = 1, y0 = 1, x1 = 0, y1 = 0;
+  for (const [x, y] of poly) {
+    if (x < x0) x0 = x;
+    if (y < y0) y0 = y;
+    if (x > x1) x1 = x;
+    if (y > y1) y1 = y;
   }
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  return { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 };
 }
 
-/** True when the point (x, y) falls inside the polygon (even-odd ray cast). */
-export function pointInPolygon(polygon, x, y) {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const [xi, yi] = polygon[i];
-    const [xj, yj] = polygon[j];
-    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+// Point-in-polygon hit test, used when the editor canvas is clicked to
+// select a panel.
+export function panelAt(layout, nx, ny) {
+  for (let i = layout.panels.length - 1; i >= 0; i--) {
+    const poly = layout.panels[i];
+    let inside = false;
+    for (let a = 0, b = poly.length - 1; a < poly.length; b = a++) {
+      const [xa, ya] = poly[a];
+      const [xb, yb] = poly[b];
+      if ((ya > ny) !== (yb > ny) && nx < ((xb - xa) * (ny - ya)) / (yb - ya) + xa) inside = !inside;
+    }
+    if (inside) return i;
   }
-  return inside;
+  return -1;
 }
