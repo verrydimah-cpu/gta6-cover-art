@@ -480,6 +480,8 @@ const SURPRISE_COVERS = [
   { layout: 'spotlight', grade: 'clean', dividerStyle: 'cream', captionStyle: 'sunset', title: 'Golden Hour Club', subtitle: 'Members Only at Sunset', assign: ['man', 'woman', 'car', 'man'] },
   { layout: 'grid', grade: 'sunset', dividerStyle: 'chrome', captionStyle: 'sunset', title: 'Six Ways to Sunday', subtitle: 'The Weekend Issue', assign: ['woman', 'car', 'man', 'car', 'woman', 'man'] },
   { layout: 'filmstrip', grade: 'clean', dividerStyle: 'cream', captionStyle: 'chrome', title: 'Boardwalk Days', subtitle: 'Salt Air & Second Chances', assign: ['man', 'woman', 'car', 'man'] },
+  { layout: 'hero', grade: 'golden', dividerStyle: 'cream', captionStyle: 'sunset', title: 'Amber Coast', subtitle: 'Last Light on the Boulevard', assign: ['woman', 'car', 'man', 'car', 'woman'] },
+  { layout: 'spotlight', grade: 'golden', dividerStyle: 'chrome', captionStyle: 'chrome', title: 'Teal & Amber', subtitle: 'Shot on Yesterday’s Film', assign: ['car', 'woman', 'man', 'car'] },
 ];
 
 document.getElementById('surpriseButton').addEventListener('click', async () => {
