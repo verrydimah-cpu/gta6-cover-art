@@ -1,102 +1,97 @@
 // grades.js — the four colour grades of Vice Cover Studio.
 //
-// A grade is a complete little colour script for a cover: the filter
-// applied to each photo while it is drawn, a duotone wash that melts
-// over the panels, the sky and sun colours used by the procedural
-// backdrops, the frame and caption colours, and the gradient stops for
-// the lettering. Everything is plain data so the renderer stays honest
-// and the editor can offer a grade as a single click.
+// A grade is applied per panel inside the renderer: first a CSS-style
+// filter string (saturation / contrast / brightness / sepia / hue),
+// then a duotone wash — the shadow colour multiplied into the darks
+// and the highlight colour screened into the lights — so every photo,
+// whatever it started as, lands in the same printed-poster world.
+// `punch` (per panel, 0.4..1.8) scales how far the filter travels
+// from the neutral photo toward the grade's full look.
 
-export const GRADES = {
-  vice: {
-    id: 'vice',
+export const GRADES = [
+  {
+    id: 'vice-sunset',
     name: 'Vice Sunset',
-    sat: 1.46, con: 1.13, bri: 1.03, sep: 0,
-    wash: [
-      [0.0, 'rgba(58,26,128,0.62)'],
-      [0.52, 'rgba(58,26,128,0.0)'],
-      [1.0, 'rgba(255,38,128,0.55)'],
-    ],
-    sky: ['#2a1660', '#ffc93e'],
-    sun: '#ffd76a',
-    silhouette: '#1c0f38',
-    frame: '#f7ead9',
-    titleFill: ['#ffe259', '#ffa751', '#ff2e88', '#7b2ff7'],
-    subtitle: '#ffe9f4',
-    band: 'rgba(20,6,44,0.55)',
-    glow: '#ff2e88',
-    neonFill: ['#aefcff', '#26e6ff', '#ff2e88'],
+    blurb: 'Violet shadows, coral light, cream frame, pink glow',
+    sat: 1.46, con: 1.13, bri: 1.02, sepia: 0.08, hue: -4,
+    shadow: [62, 30, 98],
+    highlight: [255, 148, 108],
+    tint: 0.34,
+    frame: '#fff3d6',
+    glow: '#ff5fa2',
+    sky: ['#2b1055', '#7597de', '#ff7e5f', '#feb47b'],
   },
-  neon: {
-    id: 'neon',
+  {
+    id: 'neon-night',
     name: 'Neon Night',
-    sat: 1.5, con: 1.16, bri: 0.96, sep: 0,
-    wash: [
-      [0.0, 'rgba(38,230,255,0.38)'],
-      [0.5, 'rgba(10,10,40,0.05)'],
-      [1.0, 'rgba(255,38,200,0.54)'],
-    ],
-    sky: ['#050914', '#123a6e'],
-    sun: '#26e6ff',
-    silhouette: '#04060f',
-    frame: '#dff8ff',
-    titleFill: ['#aefcff', '#26e6ff', '#7b2ff7', '#ff2ec4'],
-    subtitle: '#d8fbff',
-    band: 'rgba(2,6,20,0.62)',
-    glow: '#26e6ff',
-    neonFill: ['#ffffff', '#26e6ff', '#ff2ec4'],
+    blurb: 'Cyan and magenta over a midnight-blue frame',
+    sat: 1.32, con: 1.18, bri: 0.98, sepia: 0.02, hue: -8,
+    shadow: [8, 42, 78],
+    highlight: [255, 92, 205],
+    tint: 0.3,
+    frame: '#0d1330',
+    glow: '#22d3ee',
+    sky: ['#020617', '#0e7490', '#a21caf', '#f0abfc'],
   },
-  clean: {
-    id: 'clean',
+  {
+    id: 'clean-daylight',
     name: 'Clean Daylight',
-    sat: 1.12, con: 1.05, bri: 1.06, sep: 0.05,
-    wash: [
-      [0.0, 'rgba(255,214,150,0.16)'],
-      [0.55, 'rgba(255,255,255,0.0)'],
-      [1.0, 'rgba(255,170,90,0.14)'],
-    ],
-    sky: ['#7ec8f7', '#eaf7ff'],
-    sun: '#fff3b0',
-    silhouette: '#274b63',
+    blurb: 'Honest colour, gentle contrast, white frame',
+    sat: 1.08, con: 1.04, bri: 1.05, sepia: 0, hue: 0,
+    shadow: [52, 58, 66],
+    highlight: [255, 244, 224],
+    tint: 0.1,
     frame: '#ffffff',
-    titleFill: ['#ffffff', '#ffe9b8', '#ffb347'],
-    subtitle: '#ffffff',
-    band: 'rgba(10,30,50,0.42)',
-    glow: '#ffb347',
-    neonFill: ['#ffffff', '#bffcff', '#ffb347'],
+    glow: null,
+    sky: ['#7dd3fc', '#bae6fd', '#fef9c3', '#ffffff'],
   },
-  golden: {
-    id: 'golden',
+  {
+    id: 'golden-hour',
     name: 'Golden Hour',
-    sat: 1.22, con: 1.09, bri: 1.02, sep: 0.16,
-    wash: [
-      [0.0, 'rgba(14,70,78,0.48)'],
-      [0.5, 'rgba(14,70,78,0.0)'],
-      [1.0, 'rgba(255,148,56,0.46)'],
-    ],
-    sky: ['#14424e', '#ffb056'],
-    sun: '#ffcf7d',
-    silhouette: '#12303a',
-    frame: '#fdf3df',
-    titleFill: ['#fff0c0', '#ffb056', '#ff7847'],
-    subtitle: '#fff4dc',
-    band: 'rgba(24,20,8,0.5)',
-    glow: '#ff9438',
-    neonFill: ['#fff6d8', '#ffb056', '#ff5e3a'],
+    blurb: 'Teal shadows, amber light, a late-afternoon film still',
+    sat: 1.18, con: 1.08, bri: 1.03, sepia: 0.16, hue: -2,
+    shadow: [22, 70, 80],
+    highlight: [255, 188, 108],
+    tint: 0.3,
+    frame: '#ffe9c4',
+    glow: '#f59e0b',
+    sky: ['#134e4a', '#2dd4bf', '#fbbf24', '#fde68a'],
   },
-};
+];
 
-export const GRADE_ORDER = ['vice', 'neon', 'clean', 'golden'];
+export function gradeById(id) {
+  return GRADES.find((grade) => grade.id === id) || GRADES[0];
+}
 
-// Build the canvas filter string for a grade at a given punch (1 = as
-// authored). Punch pushes saturation and contrast away from neutral.
-export function filterFor(grade, punch = 1) {
-  const push = (v) => 1 + (v - 1) * punch;
-  const parts = [
-    `saturate(${push(grade.sat).toFixed(3)})`,
-    `contrast(${push(grade.con).toFixed(3)})`,
-    `brightness(${push(grade.bri).toFixed(3)})`,
-  ];
-  if (grade.sep > 0) parts.push(`sepia(${(grade.sep * punch).toFixed(3)})`);
-  return parts.join(' ');
+// The canvas filter string for a grade at a given punch. Punch 1 is
+// the grade as designed; below 1 the photo keeps more of itself,
+// above 1 the grade leans in harder. Sepia is not scaled past its
+// designed value — extra sepia turns skin to cardboard.
+export function filterFor(grade, punch) {
+  const lerp = (from, to) => from + (to - from) * punch;
+  const sat = Math.max(0.05, lerp(1, grade.sat));
+  const con = Math.max(0.05, lerp(1, grade.con));
+  const bri = Math.max(0.05, lerp(1, grade.bri));
+  const sepia = grade.sepia * Math.min(1, punch);
+  const hue = grade.hue * punch;
+  return `saturate(${sat.toFixed(3)}) contrast(${con.toFixed(3)}) `
+    + `brightness(${bri.toFixed(3)}) sepia(${sepia.toFixed(3)}) `
+    + `hue-rotate(${hue.toFixed(1)}deg)`;
+}
+
+// Whether the grade's frame colour is a dark one — handy when a
+// caller needs to pick a contrasting edge ink for the sheet border.
+export function frameIsDark(grade) {
+  if (!grade.frame) return false;
+  const hex = grade.frame.replace('#', '');
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 < 110;
+}
+
+// 'rgb(r, g, b)' for a grade colour triple, with optional alpha.
+export function rgb(triple, alpha) {
+  if (alpha === undefined) return `rgb(${triple[0]}, ${triple[1]}, ${triple[2]})`;
+  return `rgba(${triple[0]}, ${triple[1]}, ${triple[2]}, ${alpha})`;
 }

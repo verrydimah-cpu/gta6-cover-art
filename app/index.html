@@ -3,133 +3,110 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vice Cover Studio — GTA-style poster covers from your photos</title>
+<title>Vice Cover Studio — GTA-style cover art from your photos</title>
+<meta name="description" content="Turn your photos and a caption into GTA-poster-style cover art. Offline, in your browser, exported as PNG.">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="topbar">
+<header class="masthead">
   <div class="brand">
-    <span class="brand-mark">VC</span>
-    <div>
-      <h1>Vice Cover Studio</h1>
-      <p>Turn photos into bold poster covers — pick a layout, grade it, caption it, export the PNG.</p>
-    </div>
+    <h1><span class="brand-vice">VICE</span> COVER STUDIO</h1>
+    <p class="tagline">Your photos. One caption. A cover worth framing.</p>
   </div>
-  <div class="top-actions">
-    <button id="surpriseBtn" class="accent" type="button">🎲 Surprise Me</button>
-    <button id="exportBtn" class="primary" type="button">⬇ Export PNG</button>
-  </div>
+  <button id="surprise-btn" type="button" class="surprise">🎲 Surprise me</button>
 </header>
 
 <main class="workspace">
-  <section class="stage">
-    <div id="canvasWrap" class="canvas-wrap">
-      <canvas id="coverCanvas" width="1080" height="1080"></canvas>
-      <div id="dropHint" class="drop-hint">Drop photos anywhere to add them to the tray</div>
+  <section class="stage-wrap" aria-label="Cover preview">
+    <div class="stage-bar">
+      <label>Canvas
+        <select id="aspect-select">
+          <option value="square">Square 1:1</option>
+          <option value="portrait">Portrait 4:5</option>
+          <option value="wide">Wide 16:9</option>
+        </select>
+      </label>
+      <span id="selected-label" class="selected-label">Panel 1</span>
     </div>
-    <p class="stage-help">Click a panel to select it · drag its photo to reframe · scroll to zoom · arrow keys nudge (Shift = bigger steps) · double-click resets a crop</p>
-    <div id="recipeToast" class="toast" hidden></div>
+    <canvas id="stage" width="920" height="920" tabindex="0"
+      aria-label="Cover preview. Click a panel to select it, drag to reposition its photo, scroll to zoom, arrow keys nudge."></canvas>
+    <p class="hint">Click a panel to select it · drag to reposition its photo · scroll to zoom · arrow keys nudge (Shift = bigger steps) · every change redraws the real cover, so the export is never a surprise</p>
+    <div class="export-row">
+      <span class="export-label">Export PNG</span>
+      <button type="button" data-export="square">1080 × 1080</button>
+      <button type="button" data-export="portrait">1080 × 1350</button>
+      <button type="button" data-export="wide">1920 × 1080</button>
+    </div>
+    <p id="status" class="status" role="status">Add a photo, or try a sample, to start your cover.</p>
   </section>
 
-  <aside class="panel">
-    <fieldset>
-      <legend>Photos</legend>
-      <div class="row">
-        <label class="file-btn">＋ Add photos<input id="fileInput" type="file" accept="image/*" multiple hidden></label>
-      </div>
-      <div class="row samples">
-        <span class="mini-label">Try a sample:</span>
-        <button type="button" data-sample="neon">Neon Woman</button>
-        <button type="button" data-sample="sunset">Sunset Car</button>
-        <button type="button" data-sample="yacht">Yacht Man</button>
+  <aside class="controls">
+    <section class="card" id="drop-zone">
+      <h2>Photos</h2>
+      <label class="file-label">Add photos
+        <input id="file-input" type="file" accept="image/*" multiple>
+      </label>
+      <p class="drop-hint">…or drop image files anywhere on this card. Photos never leave your machine.</p>
+      <div class="sample-row">
+        <span>Try a sample:</span>
+        <button type="button" data-sample="neon-woman">Neon Portrait</button>
+        <button type="button" data-sample="sunset-car">Sunset Ride</button>
+        <button type="button" data-sample="yacht-man">Yacht Day</button>
       </div>
       <div id="tray" class="tray" aria-label="Photo tray"></div>
-      <div class="row wrap">
-        <button id="fillAllBtn" type="button">Fill all panels</button>
-        <button id="spreadBtn" type="button">Spread photos</button>
-        <button id="autoArrangeBtn" type="button">Auto-arrange</button>
+    </section>
+
+    <section class="card">
+      <h2>Layout &amp; grade</h2>
+      <label>Layout <select id="layout-select"></select></label>
+      <label>Grade <select id="grade-select"></select></label>
+      <label>Dividers <select id="divider-select"></select></label>
+    </section>
+
+    <section class="card">
+      <h2>Selected panel</h2>
+      <label>Grade punch <input id="punch-range" type="range" min="0.4" max="1.8" step="0.05" value="1"></label>
+      <div class="button-grid">
+        <button type="button" id="fill-all-btn">Fill all panels</button>
+        <button type="button" id="spread-btn">Spread photos</button>
+        <button type="button" id="reset-crop-btn">Reset crops</button>
+        <button type="button" id="swap-btn">Swap with next</button>
+        <button type="button" id="arrange-btn">Auto-arrange</button>
       </div>
-    </fieldset>
+    </section>
 
-    <fieldset>
-      <legend>Selected panel <span id="panelName" class="pill">Panel 1</span></legend>
-      <div class="row wrap">
-        <button id="swapBtn" type="button">Swap with next panel</button>
-        <button id="resetCropBtn" type="button">Reset crop</button>
-      </div>
-      <label class="slider">Grade punch <span id="punchVal">1.00×</span>
-        <input id="punchRange" type="range" min="0.4" max="1.8" step="0.05" value="1">
-      </label>
-      <p class="hint">Punch pushes this panel's saturation, contrast and duotone wash harder (or softer) than the rest of the cover.</p>
-    </fieldset>
-
-    <fieldset>
-      <legend>Layout &amp; grade</legend>
-      <label class="select">Layout <select id="layoutSel"></select></label>
-      <label class="select">Colour grade <select id="gradeSel"></select></label>
-      <label class="select">Dividers
-        <select id="dividerSel">
-          <option value="cream">Cream</option>
-          <option value="chrome">Chrome</option>
-          <option value="neon">Neon</option>
-        </select>
-      </label>
-    </fieldset>
-
-    <fieldset>
-      <legend>Caption</legend>
-      <label class="text">Title <input id="titleInput" type="text" value="NEON VICE" maxlength="40"></label>
-      <label class="text">Subtitle <input id="subtitleInput" type="text" value="VICE COVER STUDIO" maxlength="60"></label>
-      <label class="select">Lettering
-        <select id="captionStyleSel">
-          <option value="sunset">Sunset Gradient</option>
-          <option value="chrome">Chrome</option>
-          <option value="neon">Neon Glow</option>
-        </select>
-      </label>
-      <label class="select">Caption position
-        <select id="captionPosSel">
-          <option value="bottom">Bottom</option>
+    <section class="card">
+      <h2>Caption</h2>
+      <label>Title <input id="title-input" type="text" maxlength="26" value="NEON VICE"></label>
+      <label>Subtitle <input id="subtitle-input" type="text" maxlength="40" value="A VICE CITY STORY"></label>
+      <label>Position
+        <select id="pos-select">
           <option value="top">Top</option>
+          <option value="bottom">Bottom</option>
         </select>
       </label>
-      <label class="slider">Outline weight <span id="outlineVal">1.0</span>
-        <input id="outlineRange" type="range" min="0.5" max="2" step="0.1" value="1">
-      </label>
-      <label class="slider">Subtitle size <span id="subSizeVal">1.0</span>
-        <input id="subSizeRange" type="range" min="0.8" max="1.6" step="0.05" value="1">
-      </label>
-    </fieldset>
+      <label>Lettering <select id="lettering-select"></select></label>
+      <label>Outline weight <input id="outline-range" type="range" min="0" max="1" step="0.05" value="0.55"></label>
+      <label>Subtitle size <input id="subsize-range" type="range" min="0.18" max="0.6" step="0.02" value="0.34"></label>
+    </section>
 
-    <fieldset>
-      <legend>Film finish</legend>
-      <label class="check"><input id="grainChk" type="checkbox" checked> Seeded film grain</label>
-      <label class="check"><input id="leakChk" type="checkbox"> Light leak</label>
-      <label class="slider">Halftone corners <span id="halftoneVal">0</span>
-        <input id="halftoneRange" type="range" min="0" max="1" step="0.05" value="0">
-      </label>
-      <label class="check"><input id="sharpChk" type="checkbox" checked> Sharp finish (unsharp mask)</label>
-      <label class="slider">Sharp amount <span id="sharpVal">0.6</span>
-        <input id="sharpRange" type="range" min="0" max="1.5" step="0.05" value="0.6">
-      </label>
-    </fieldset>
-
-    <fieldset>
-      <legend>Export</legend>
-      <label class="select">Size
-        <select id="sizeSel">
-          <option value="square">Square — 1080 × 1080</option>
-          <option value="portrait">Portrait — 1080 × 1350</option>
-          <option value="wide">Wide — 1920 × 1080</option>
-        </select>
-      </label>
-      <button id="exportBtn2" class="primary wide-btn" type="button">⬇ Download cover PNG</button>
-      <p class="hint">Exports are rendered fresh at full size by the same painter as the preview — no server, everything stays on this device.</p>
-    </fieldset>
+    <section class="card">
+      <h2>Film finish</h2>
+      <label class="check"><input id="leak-check" type="checkbox" checked> Light leak</label>
+      <label class="check"><input id="grain-check" type="checkbox" checked> Seeded film grain</label>
+      <label class="check"><input id="decor-check" type="checkbox" checked> Edge decorations</label>
+      <label>Halftone <input id="halftone-range" type="range" min="0" max="1" step="0.05" value="0.3"></label>
+      <label class="check"><input id="sharp-check" type="checkbox" checked> Sharp finish (unsharp mask)</label>
+      <label>Sharp amount <input id="sharp-range" type="range" min="0" max="1.2" step="0.05" value="0.6"></label>
+    </section>
   </aside>
 </main>
 
-<footer class="foot">Vice Cover Studio · an original fan-art tool · Anton lettering under the SIL Open Font License · works fully offline</footer>
+<footer class="colophon">
+  <p>Vice Cover Studio runs entirely in your browser — no uploads, no accounts, no watermarks.
+  Lettering is set in Anton (SIL Open Font License 1.1, see fonts/OFL.txt).</p>
+</footer>
+
 <script type="module" src="src/main.js"></script>
 </body>
 </html>

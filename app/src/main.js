@@ -1,402 +1,522 @@
 // main.js — the Vice Cover Studio editor.
 //
-// Owns the cover state, the photo tray, every control in the side
-// panel, and the pointer/keyboard editing on the canvas. Painting is
-// delegated to render.js: this file never draws cover art itself, it
-// only decides what the state is and asks for a repaint.
+// Wires the page to the renderer: a photo tray (file picker, drag &
+// drop, and the three bundled samples), six layouts, four grades,
+// per-panel crops with drag / wheel / arrow-key control, captions,
+// film finish, and PNG export at the three share sizes. The cover
+// itself is always painted by renderCover (src/render.js); this file
+// only owns state and events.
 
-import { GRADES, GRADE_ORDER } from './grades.js';
-import { LAYOUTS, LAYOUT_ORDER, panelArea, panelAt } from './layouts.js';
-import { EXPORT_SIZES, renderCover } from './render.js';
-import { SAMPLES, SHOT_SCENES } from './shots.js';
+import { LAYOUTS, layoutById, pointInPanel, panelBounds } from './layouts.js';
+import { GRADES } from './grades.js';
+import { renderCover, EXPORT_SIZES, DIVIDERS, LETTERING } from './render.js';
+import { SAMPLES, sampleByKey, shotConfig } from './shots.js';
+
+// Nine house recipes for Surprise Me: layout + grade + caption +
+// divider combinations that are known to sit well together.
+export const RECIPES = [
+  { name: 'Neon Vice', title: 'NEON VICE', subtitle: 'A VICE CITY STORY', layout: 'hero-collage', grade: 'vice-sunset', divider: 'cream', lettering: 'sunset', pos: 'top', leak: true, halftone: 0.3, punch: 1.25 },
+  { name: 'Midnight Run', title: 'MIDNIGHT RUN', subtitle: 'OCEAN DRIVE AFTER DARK', layout: 'diagonal-trio', grade: 'neon-night', divider: 'neon', lettering: 'neon', pos: 'bottom', leak: false, halftone: 0.45, punch: 1.15 },
+  { name: 'Chrome Hearts', title: 'CHROME HEARTS', subtitle: 'SHINE LIKE YOU MEAN IT', layout: 'spotlight', grade: 'clean-daylight', divider: 'chrome', lettering: 'chrome', pos: 'top', leak: false, halftone: 0.15, punch: 1 },
+  { name: 'Neon Palms', title: 'NEON PALMS', subtitle: 'WHERE THE PALMS GLOW', layout: 'magazine-split', grade: 'golden-hour', divider: 'cream', lettering: 'sunset', pos: 'top', leak: true, halftone: 0.25, punch: 1.1 },
+  { name: 'Sunset Heist', title: 'SUNSET HEIST', subtitle: 'ONE LAST SCORE', layout: 'hero-filmstrip', grade: 'vice-sunset', divider: 'cream', lettering: 'sunset', pos: 'bottom', leak: true, halftone: 0.35, punch: 1.3 },
+  { name: 'Grid Lock', title: 'GRID LOCK', subtitle: 'SIX FRAMES OF TROUBLE', layout: 'grid-six', grade: 'neon-night', divider: 'neon', lettering: 'neon', pos: 'top', leak: false, halftone: 0.5, punch: 1.2 },
+  { name: 'Amber Coast', title: 'AMBER COAST', subtitle: 'GOLD ON THE WATER', layout: 'hero-collage', grade: 'golden-hour', divider: 'cream', lettering: 'sunset', pos: 'top', leak: true, halftone: 0.2, punch: 1.05 },
+  { name: 'Teal & Amber', title: 'TEAL & AMBER', subtitle: 'LAST LIGHT, FIRST MOVE', layout: 'spotlight', grade: 'golden-hour', divider: 'chrome', lettering: 'chrome', pos: 'bottom', leak: false, halftone: 0.3, punch: 1.1 },
+  { name: 'Daylight Confidential', title: 'DAYLIGHT', subtitle: 'CONFIDENTIAL', layout: 'magazine-split', grade: 'clean-daylight', divider: 'chrome', lettering: 'chrome', pos: 'top', leak: false, halftone: 0.1, punch: 0.95 },
+];
 
 const $ = (id) => document.getElementById(id);
-const canvas = $('coverCanvas');
-const ctx = canvas.getContext('2d');
 
-const photos = new Map(); // id -> { id, name, src, img }
-let photoSeq = 0;
-
-const blankPanel = () => ({ photo: null, dx: 0, dy: 0, zoom: 1, punch: 1 });
+const els = {
+  stage: $('stage'),
+  tray: $('tray'),
+  fileInput: $('file-input'),
+  layoutSel: $('layout-select'),
+  gradeSel: $('grade-select'),
+  dividerSel: $('divider-select'),
+  letteringSel: $('lettering-select'),
+  posSel: $('pos-select'),
+  titleInput: $('title-input'),
+  subtitleInput: $('subtitle-input'),
+  outlineRange: $('outline-range'),
+  subSizeRange: $('subsize-range'),
+  punchRange: $('punch-range'),
+  halftoneRange: $('halftone-range'),
+  sharpRange: $('sharp-range'),
+  leakCheck: $('leak-check'),
+  grainCheck: $('grain-check'),
+  sharpCheck: $('sharp-check'),
+  decorCheck: $('decor-check'),
+  aspectSel: $('aspect-select'),
+  selectedLabel: $('selected-label'),
+  status: $('status'),
+};
 
 const state = {
-  layout: 'hero',
-  grade: 'vice',
+  layout: 'hero-collage',
+  grade: 'vice-sunset',
   divider: 'cream',
-  captionStyle: 'sunset',
-  captionPos: 'bottom',
+  lettering: 'sunset',
   title: 'NEON VICE',
-  subtitle: 'VICE COVER STUDIO',
-  outline: 1,
-  subSize: 1,
+  subtitle: 'A VICE CITY STORY',
+  captionPos: 'top',
+  outline: 0.55,
+  subSize: 0.34,
+  halftone: 0.3,
+  leak: true,
   grain: true,
-  leak: false,
-  halftone: 0,
+  decor: true,
   sharp: true,
-  sharpAmt: 0.6,
-  size: 'square',
-  panels: Array.from({ length: 6 }, blankPanel),
+  sharpAmount: 0.6,
+  seed: 7,
+  panels: [],
+  selected: 0,
 };
-let selected = 0;
 
-// ---------- painting ----------
+const photos = []; // { img, name } — images[i] below mirrors img order
+const images = [];
 
-function repaint() {
-  const size = EXPORT_SIZES[state.size] || EXPORT_SIZES.square;
-  // preview at a friendly resolution with the export's aspect ratio
-  const scale = Math.min(1, 980 / size.w);
-  canvas.width = Math.round(size.w * scale);
-  canvas.height = Math.round(size.h * scale);
-  renderCover(ctx, state, canvas.width, canvas.height, photos);
-  markSelectedPanel();
+function freshPanels(count) {
+  return Array.from({ length: count }, () => ({
+    photo: null, dx: 0, dy: 0, zoom: 1, punch: 1,
+  }));
+}
+state.panels = freshPanels(layoutById(state.layout).panels.length);
+
+function setStatus(text) {
+  if (els.status) els.status.textContent = text;
 }
 
-function markSelectedPanel() {
-  $('panelName').textContent = `Panel ${selected + 1}`;
-  const p = state.panels[selected];
-  $('punchRange').value = String(p.punch ?? 1);
-  $('punchVal').textContent = `${(p.punch ?? 1).toFixed(2)}×`;
-  document.querySelectorAll('.tray figure').forEach((fig) => {
-    fig.classList.toggle('active', fig.dataset.photo === p.photo);
+// --- rendering ---------------------------------------------------------
+
+const PREVIEW = { square: [920, 920], portrait: [880, 1100], wide: [1180, 664] };
+
+function render() {
+  renderCover(els.stage, state, images);
+  // The selection overlay is editor chrome: in a cover screenshot
+  // scene the cover must appear exactly as it would export.
+  if (!document.body.classList.contains('shot-cover')) drawSelection();
+  els.selectedLabel.textContent = `Panel ${state.selected + 1} of ${state.panels.length}`;
+  els.punchRange.value = String(state.panels[state.selected]?.punch ?? 1);
+}
+
+// The editor-only overlay: a dashed outline + corner tag on the
+// selected panel. Drawn after renderCover so it never reaches an
+// export (exports render onto their own fresh canvas).
+function drawSelection() {
+  const layout = layoutById(state.layout);
+  const points = layout.panels[state.selected];
+  if (!points) return;
+  const ctx = els.stage.getContext('2d');
+  const W = els.stage.width;
+  const H = els.stage.height;
+  ctx.save();
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    if (i === 0) ctx.moveTo(p.x * W, p.y * H);
+    else ctx.lineTo(p.x * W, p.y * H);
   });
+  ctx.closePath();
+  ctx.setLineDash([10, 7]);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#22d3ee';
+  ctx.stroke();
+  ctx.setLineDash([]);
+  const b = panelBounds(points);
+  ctx.fillStyle = '#22d3ee';
+  const tagW = 92; const tagH = 26;
+  ctx.fillRect(b.minX * W + 6, b.minY * H + 6, tagW, tagH);
+  ctx.fillStyle = '#082f3a';
+  ctx.font = '700 15px system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`PANEL ${state.selected + 1}`, b.minX * W + 14, b.minY * H + 24);
+  ctx.restore();
 }
 
-// ---------- photos ----------
+function setAspect(aspect) {
+  const [w, h] = PREVIEW[aspect] || PREVIEW.square;
+  els.stage.width = w;
+  els.stage.height = h;
+  render();
+}
 
-function addPhoto(id, name, src) {
-  return new Promise((resolve) => {
+// --- photos --------------------------------------------------------------
+
+function addPhoto(img, name) {
+  photos.push({ img, name });
+  images.push(img);
+  const idx = photos.length - 1;
+  // First photo fills panel 1; later photos claim the next empty
+  // panel, so dropping three photos builds a cover immediately.
+  const empty = state.panels.findIndex((p) => p.photo == null);
+  if (empty !== -1) state.panels[empty].photo = idx;
+  buildTray();
+  render();
+  return idx;
+}
+
+function loadImageFromSrc(src, name) {
+  return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => {
-      photos.set(id, { id, name, src, img });
-      buildTray();
-      resolve(id);
-    };
-    img.onerror = () => resolve(null);
+    img.onload = () => resolve(addPhoto(img, name));
+    img.onerror = reject;
     img.src = src;
   });
 }
 
-async function loadSample(id) {
-  if (photos.has(id)) return id;
-  const sample = SAMPLES.find((s) => s.id === id);
-  if (!sample) return null;
-  return addPhoto(sample.id, sample.name, sample.src);
+function loadSample(key) {
+  const sample = sampleByKey(key);
+  return loadImageFromSrc(sample.src, sample.label);
 }
 
 function buildTray() {
-  const tray = $('tray');
-  tray.innerHTML = '';
-  for (const photo of photos.values()) {
-    const fig = document.createElement('figure');
-    fig.dataset.photo = photo.id;
-    const img = document.createElement('img');
-    img.src = photo.src;
-    img.alt = photo.name;
-    const cap = document.createElement('figcaption');
-    cap.textContent = photo.name;
-    fig.append(img, cap);
-    fig.title = 'Click to place in the selected panel';
-    fig.addEventListener('click', () => {
-      state.panels[selected].photo = photo.id;
-      repaint();
+  els.tray.innerHTML = '';
+  photos.forEach((photo, i) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tray-item';
+    button.title = `${photo.name} — click to put it in the selected panel`;
+    const thumb = document.createElement('img');
+    thumb.src = photo.img.src;
+    thumb.alt = photo.name;
+    const caption = document.createElement('span');
+    caption.textContent = photo.name;
+    button.append(thumb, caption);
+    button.addEventListener('click', () => {
+      state.panels[state.selected].photo = i;
+      render();
+      setStatus(`${photo.name} is in panel ${state.selected + 1}.`);
     });
-    tray.append(fig);
-  }
-  markSelectedPanel();
-}
-
-async function handleFiles(files) {
-  for (const file of files) {
-    if (!file.type.startsWith('image/')) continue;
-    const src = URL.createObjectURL(file);
-    const id = `upload-${++photoSeq}`;
-    await addPhoto(id, file.name.replace(/\.[^.]+$/, ''), src);
-    if (!state.panels[selected].photo) state.panels[selected].photo = id;
-  }
-  repaint();
-}
-
-// ---------- panel arrangement ----------
-
-function panelCount() {
-  return LAYOUTS[state.layout].panels.length;
-}
-
-function fillAll() {
-  const first = state.panels[selected].photo || [...photos.keys()][0];
-  if (!first) return;
-  for (let i = 0; i < panelCount(); i++) state.panels[i].photo = first;
-  repaint();
-}
-
-function spread() {
-  const ids = [...photos.keys()];
-  if (!ids.length) return;
-  for (let i = 0; i < panelCount(); i++) state.panels[i].photo = ids[i % ids.length];
-  repaint();
-}
-
-function autoArrange() {
-  // biggest panels (by polygon area) receive the biggest photos
-  const layout = LAYOUTS[state.layout];
-  const order = layout.panels
-    .map((poly, i) => ({ i, area: panelArea(poly) }))
-    .sort((a, b) => b.area - a.area);
-  const bySize = [...photos.values()]
-    .map((p) => ({ id: p.id, area: (p.img.naturalWidth || 1) * (p.img.naturalHeight || 1) }))
-    .sort((a, b) => b.area - a.area);
-  if (!bySize.length) return;
-  order.forEach((slot, k) => {
-    state.panels[slot.i].photo = bySize[k % bySize.length].id;
+    els.tray.append(button);
   });
-  repaint();
 }
 
-function swapWithNext() {
-  const n = panelCount();
-  const j = (selected + 1) % n;
-  const a = state.panels[selected], b = state.panels[j];
-  state.panels[selected] = b;
-  state.panels[j] = a;
-  selected = j;
-  repaint();
+// Spread: deal the photos across the panels in order, wrapping when
+// there are fewer photos than panels.
+function spreadPhotos() {
+  if (!photos.length) return;
+  state.panels.forEach((panel, i) => { panel.photo = i % photos.length; });
 }
 
-function resetCrop() {
-  const p = state.panels[selected];
-  p.dx = 0; p.dy = 0; p.zoom = 1;
-  repaint();
-}
+// --- panel editing ---------------------------------------------------------
 
-// ---------- Surprise Me recipes ----------
-
-const P = (photo, dx = 0, dy = 0, zoom = 1, punch = 1) => ({ photo, dx, dy, zoom, punch });
-const RECIPES = [
-  { name: 'Neon Vice', layout: 'hero', grade: 'vice', divider: 'cream', captionStyle: 'sunset', title: 'NEON VICE', subtitle: 'VICE COVER STUDIO', leak: true,
-    panels: [P('neon', 0, -0.04, 1.12, 1.3), P('sunset', 0.05, 0, 1.2, 1.15), P('yacht', -0.04, 0.02, 1.18, 1.1), P('sunset', -0.1, 0.05, 1.35, 1.05), P(null)] },
-  { name: 'Midnight Run', layout: 'filmstrip', grade: 'neon', divider: 'chrome', captionStyle: 'chrome', title: 'MIDNIGHT RUN', subtitle: 'AFTER DARK ON THE BOULEVARD', leak: false,
-    panels: [P('sunset', 0, -0.02, 1.1, 1.25), P('neon', 0, 0, 1.15, 1.1), P('yacht', 0.03, 0, 1.2, 1.05), P('sunset', -0.06, 0.03, 1.3, 1), P('neon', -0.05, -0.03, 1.25, 1.1)] },
-  { name: 'Neon Palms', layout: 'magazine', grade: 'golden', divider: 'cream', captionStyle: 'sunset', title: 'NEON PALMS', subtitle: 'GOLDEN HOUR EDITION', leak: true,
-    panels: [P('neon', 0, -0.03, 1.08, 1.2), P('yacht', -0.02, 0.01, 1.12, 1.05)] },
-  { name: 'Chrome Heat', layout: 'trio', grade: 'neon', divider: 'neon', captionStyle: 'neon', title: 'CHROME HEAT', subtitle: 'THE CITY NEVER COOLS', leak: true,
-    panels: [P('neon', 0, -0.02, 1.14, 1.25), P('sunset', 0.04, 0, 1.22, 1.1), P('yacht', -0.03, 0.02, 1.18, 1.05)] },
-  { name: 'Six Ways In', layout: 'grid', grade: 'vice', divider: 'cream', captionStyle: 'sunset', title: 'SIX WAYS IN', subtitle: 'ONE WAY OUT', leak: false,
-    panels: [P('neon', 0, 0, 1.15, 1.2), P('sunset', 0.03, 0, 1.2, 1.1), P('yacht', -0.02, 0, 1.18, 1.05), P('sunset', -0.08, 0.04, 1.3, 1), P('neon', -0.04, -0.02, 1.22, 1.1), P('yacht', 0.05, -0.03, 1.26, 1)] },
-  { name: 'Spotlight Star', layout: 'spotlight', grade: 'vice', divider: 'neon', captionStyle: 'neon', title: 'SPOTLIGHT', subtitle: 'EVERYBODY WATCHES THE STAR', leak: true,
-    panels: [P('neon', 0, -0.05, 1.1, 1.3), P('sunset', 0, 0, 1.3, 1), P('yacht', 0, 0, 1.3, 1)] },
-  { name: 'Daylight Confession', layout: 'magazine', grade: 'clean', divider: 'cream', captionStyle: 'sunset', title: 'DAYLIGHT', subtitle: 'NOTHING TO HIDE AT NOON', leak: false,
-    panels: [P('yacht', 0, -0.02, 1.1, 1.1), P('sunset', -0.03, 0.01, 1.14, 1)] },
-  { name: 'Amber Coast', layout: 'hero', grade: 'golden', divider: 'cream', captionStyle: 'sunset', title: 'AMBER COAST', subtitle: 'LAST LIGHT, FIRST MOVE', leak: true,
-    panels: [P('sunset', 0, -0.03, 1.12, 1.25), P('neon', 0.04, 0, 1.2, 1.1), P('yacht', -0.04, 0.02, 1.16, 1.05), P('neon', -0.08, 0.04, 1.3, 1), P(null)] },
-  { name: 'Teal & Amber', layout: 'spotlight', grade: 'golden', divider: 'chrome', captionStyle: 'chrome', title: 'TEAL & AMBER', subtitle: 'SHADOWS AT GOLDEN HOUR', leak: false,
-    panels: [P('yacht', 0, -0.04, 1.1, 1.2), P('neon', 0, 0, 1.3, 1), P('sunset', 0, 0, 1.3, 1)] },
-];
-let recipeCursor = -1;
-
-async function surprise() {
-  for (const s of SAMPLES) await loadSample(s.id);
-  recipeCursor = (recipeCursor + 1 + Math.floor(Math.random() * RECIPES.length)) % RECIPES.length;
-  const r = RECIPES[recipeCursor];
-  applyScene(r);
-  const toast = $('recipeToast');
-  toast.textContent = `🎲 Surprise Me: ${r.name}`;
-  toast.hidden = false;
-  setTimeout(() => { toast.hidden = true; }, 2600);
-}
-
-function applyScene(scene) {
-  Object.assign(state, {
-    layout: scene.layout || state.layout,
-    grade: scene.grade || state.grade,
-    divider: scene.divider || 'cream',
-    captionStyle: scene.captionStyle || 'sunset',
-    captionPos: scene.captionPos || 'bottom',
-    title: scene.title ?? state.title,
-    subtitle: scene.subtitle ?? state.subtitle,
-    outline: scene.outline ?? 1,
-    subSize: scene.subSize ?? 1,
-    grain: scene.grain ?? true,
-    leak: scene.leak ?? false,
-    halftone: scene.halftone ?? 0,
-    sharp: scene.sharp ?? true,
-    sharpAmt: scene.sharpAmt ?? 0.6,
-    size: scene.size || state.size,
-  });
-  state.panels = Array.from({ length: 6 }, (_, i) => ({ ...blankPanel(), ...(scene.panels?.[i] || {}) }));
-  selected = 0;
-  syncControls();
-  repaint();
-}
-
-function syncControls() {
-  $('layoutSel').value = state.layout;
-  $('gradeSel').value = state.grade;
-  $('dividerSel').value = state.divider;
-  $('captionStyleSel').value = state.captionStyle;
-  $('captionPosSel').value = state.captionPos;
-  $('titleInput').value = state.title;
-  $('subtitleInput').value = state.subtitle;
-  $('outlineRange').value = String(state.outline);
-  $('outlineVal').textContent = Number(state.outline).toFixed(1);
-  $('subSizeRange').value = String(state.subSize);
-  $('subSizeVal').textContent = Number(state.subSize).toFixed(2).replace(/0$/, '');
-  $('grainChk').checked = state.grain;
-  $('leakChk').checked = state.leak;
-  $('halftoneRange').value = String(state.halftone);
-  $('halftoneVal').textContent = String(state.halftone);
-  $('sharpChk').checked = state.sharp;
-  $('sharpRange').value = String(state.sharpAmt);
-  $('sharpVal').textContent = String(state.sharpAmt);
-  $('sizeSel').value = state.size;
-}
-
-// ---------- export ----------
-
-function exportPng() {
-  const size = EXPORT_SIZES[state.size] || EXPORT_SIZES.square;
-  const off = document.createElement('canvas');
-  off.width = size.w;
-  off.height = size.h;
-  renderCover(off.getContext('2d'), state, size.w, size.h, photos);
-  off.toBlob((blob) => {
-    if (!blob) return;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${(state.title || 'vice-cover').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${size.w}x${size.h}.png`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  }, 'image/png');
-}
-
-// ---------- canvas pointer editing ----------
-
-function canvasPoint(ev) {
-  const rect = canvas.getBoundingClientRect();
+function canvasPoint(event) {
+  const rect = els.stage.getBoundingClientRect();
   return {
-    nx: (ev.clientX - rect.left) / rect.width,
-    ny: (ev.clientY - rect.top) / rect.height,
+    x: (event.clientX - rect.left) / rect.width,
+    y: (event.clientY - rect.top) / rect.height,
   };
 }
 
-let drag = null;
-canvas.addEventListener('pointerdown', (ev) => {
-  const { nx, ny } = canvasPoint(ev);
-  const hit = panelAt(LAYOUTS[state.layout], nx, ny);
-  if (hit >= 0) selected = hit;
-  drag = { x: ev.clientX, y: ev.clientY };
-  canvas.setPointerCapture(ev.pointerId);
-  repaint();
-});
-canvas.addEventListener('pointermove', (ev) => {
-  if (!drag) return;
-  const rect = canvas.getBoundingClientRect();
-  const p = state.panels[selected];
-  p.dx = clamp(p.dx - (ev.clientX - drag.x) / rect.width * 0.9, -0.5, 0.5);
-  p.dy = clamp(p.dy - (ev.clientY - drag.y) / rect.height * 0.9, -0.5, 0.5);
-  drag = { x: ev.clientX, y: ev.clientY };
-  repaint();
-});
-canvas.addEventListener('pointerup', () => { drag = null; });
-canvas.addEventListener('dblclick', () => resetCrop());
-canvas.addEventListener('wheel', (ev) => {
-  ev.preventDefault();
-  const p = state.panels[selected];
-  p.zoom = clamp(p.zoom * (ev.deltaY < 0 ? 1.07 : 0.93), 1, 4);
-  repaint();
-}, { passive: false });
-
-function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
-
-window.addEventListener('keydown', (ev) => {
-  const tag = (ev.target?.tagName || '').toLowerCase();
-  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-  const step = (ev.shiftKey ? 5 : 1) * 0.01;
-  const p = state.panels[selected];
-  if (ev.key === 'ArrowLeft') p.dx = clamp(p.dx + step, -0.5, 0.5);
-  else if (ev.key === 'ArrowRight') p.dx = clamp(p.dx - step, -0.5, 0.5);
-  else if (ev.key === 'ArrowUp') p.dy = clamp(p.dy + step, -0.5, 0.5);
-  else if (ev.key === 'ArrowDown') p.dy = clamp(p.dy - step, -0.5, 0.5);
-  else return;
-  ev.preventDefault();
-  repaint();
-});
-
-// ---------- wiring ----------
-
-function fillSelect(sel, order, table) {
-  for (const id of order) {
-    const opt = document.createElement('option');
-    opt.value = id;
-    opt.textContent = table[id].name;
-    sel.append(opt);
+function panelAt(x, y) {
+  const layout = layoutById(state.layout);
+  for (let i = layout.panels.length - 1; i >= 0; i -= 1) {
+    if (pointInPanel(layout.panels[i], x, y)) return i;
   }
+  return -1;
 }
 
-async function init() {
-  fillSelect($('layoutSel'), LAYOUT_ORDER, LAYOUTS);
-  fillSelect($('gradeSel'), GRADE_ORDER, GRADES);
+let drag = null;
 
-  $('fileInput').addEventListener('change', (ev) => handleFiles([...ev.target.files]));
-  document.querySelectorAll('[data-sample]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const id = await loadSample(btn.dataset.sample);
-      if (id && !state.panels[selected].photo) state.panels[selected].photo = id;
-      repaint();
+els.stage.addEventListener('pointerdown', (event) => {
+  const pt = canvasPoint(event);
+  const hit = panelAt(pt.x, pt.y);
+  if (hit !== -1) state.selected = hit;
+  drag = { x: event.clientX, y: event.clientY };
+  els.stage.setPointerCapture(event.pointerId);
+  render();
+});
+
+els.stage.addEventListener('pointermove', (event) => {
+  if (!drag) return;
+  const panel = state.panels[state.selected];
+  if (!panel || panel.photo == null) return;
+  const rect = els.stage.getBoundingClientRect();
+  const dxPx = event.clientX - drag.x;
+  const dyPx = event.clientY - drag.y;
+  drag = { x: event.clientX, y: event.clientY };
+  // Convert the pointer travel into crop units: one panel-width of
+  // travel is roughly one full crop range at zoom 1.
+  const bounds = panelBounds(layoutById(state.layout).panels[state.selected]);
+  panel.dx = clamp(panel.dx + dxPx / (rect.width * bounds.w) * 0.6, -1, 1);
+  panel.dy = clamp(panel.dy + dyPx / (rect.height * bounds.h) * 0.6, -1, 1);
+  render();
+});
+
+els.stage.addEventListener('pointerup', () => { drag = null; });
+
+els.stage.addEventListener('wheel', (event) => {
+  event.preventDefault();
+  const panel = state.panels[state.selected];
+  if (!panel) return;
+  const step = event.deltaY < 0 ? 1.07 : 1 / 1.07;
+  panel.zoom = clamp((panel.zoom || 1) * step, 0.35, 4);
+  render();
+}, { passive: false });
+
+els.stage.addEventListener('keydown', (event) => {
+  const panel = state.panels[state.selected];
+  if (!panel) return;
+  const step = event.shiftKey ? 0.12 : 0.03;
+  const moves = {
+    ArrowLeft: [-step, 0], ArrowRight: [step, 0],
+    ArrowUp: [0, -step], ArrowDown: [0, step],
+  };
+  const move = moves[event.key];
+  if (!move) return;
+  event.preventDefault();
+  panel.dx = clamp(panel.dx + move[0], -1, 1);
+  panel.dy = clamp(panel.dy + move[1], -1, 1);
+  render();
+});
+
+function clamp(value, lo, hi) {
+  return Math.min(hi, Math.max(lo, value));
+}
+
+// --- controls ---------------------------------------------------------------
+
+function fillSelect(select, items, value) {
+  select.innerHTML = '';
+  for (const item of items) {
+    const option = document.createElement('option');
+    option.value = item.id;
+    option.textContent = item.name;
+    select.append(option);
+  }
+  select.value = value;
+}
+
+function syncControls() {
+  els.layoutSel.value = state.layout;
+  els.gradeSel.value = state.grade;
+  els.dividerSel.value = state.divider;
+  els.letteringSel.value = state.lettering;
+  els.posSel.value = state.captionPos;
+  els.titleInput.value = state.title;
+  els.subtitleInput.value = state.subtitle;
+  els.outlineRange.value = String(state.outline);
+  els.subSizeRange.value = String(state.subSize);
+  els.halftoneRange.value = String(state.halftone);
+  els.leakCheck.checked = state.leak;
+  els.grainCheck.checked = state.grain !== false;
+  els.sharpCheck.checked = state.sharp;
+  els.sharpRange.value = String(state.sharpAmount);
+  els.decorCheck.checked = state.decor !== false;
+}
+
+function changeLayout(id) {
+  const previous = state.panels;
+  state.layout = id;
+  const count = layoutById(id).panels.length;
+  state.panels = freshPanels(count);
+  previous.forEach((panel, i) => {
+    if (i < count) state.panels[i] = { ...panel };
+  });
+  if (!photos.length) { render(); return; }
+  const anyAssigned = state.panels.some((p) => p.photo != null);
+  if (!anyAssigned) spreadPhotos();
+  state.selected = Math.min(state.selected, count - 1);
+  render();
+}
+
+function wireControls() {
+  fillSelect(els.layoutSel, LAYOUTS, state.layout);
+  fillSelect(els.gradeSel, GRADES, state.grade);
+  fillSelect(els.dividerSel, DIVIDERS, state.divider);
+  fillSelect(els.letteringSel, LETTERING, state.lettering);
+
+  els.layoutSel.addEventListener('change', () => changeLayout(els.layoutSel.value));
+  els.gradeSel.addEventListener('change', () => { state.grade = els.gradeSel.value; render(); });
+  els.dividerSel.addEventListener('change', () => { state.divider = els.dividerSel.value; render(); });
+  els.letteringSel.addEventListener('change', () => { state.lettering = els.letteringSel.value; render(); });
+  els.posSel.addEventListener('change', () => { state.captionPos = els.posSel.value; render(); });
+  els.titleInput.addEventListener('input', () => { state.title = els.titleInput.value.toUpperCase(); render(); });
+  els.subtitleInput.addEventListener('input', () => { state.subtitle = els.subtitleInput.value.toUpperCase(); render(); });
+  els.outlineRange.addEventListener('input', () => { state.outline = Number(els.outlineRange.value); render(); });
+  els.subSizeRange.addEventListener('input', () => { state.subSize = Number(els.subSizeRange.value); render(); });
+  els.halftoneRange.addEventListener('input', () => { state.halftone = Number(els.halftoneRange.value); render(); });
+  els.punchRange.addEventListener('input', () => {
+    state.panels[state.selected].punch = Number(els.punchRange.value);
+    render();
+  });
+  els.leakCheck.addEventListener('change', () => { state.leak = els.leakCheck.checked; render(); });
+  els.grainCheck.addEventListener('change', () => { state.grain = els.grainCheck.checked; render(); });
+  els.decorCheck.addEventListener('change', () => { state.decor = els.decorCheck.checked; render(); });
+  els.sharpCheck.addEventListener('change', () => { state.sharp = els.sharpCheck.checked; render(); });
+  els.sharpRange.addEventListener('input', () => { state.sharpAmount = Number(els.sharpRange.value); render(); });
+  els.aspectSel.addEventListener('change', () => setAspect(els.aspectSel.value));
+
+  $('fill-all-btn').addEventListener('click', () => {
+    const panel = state.panels[state.selected];
+    if (!panel || panel.photo == null) { setStatus('Pick a photo for this panel first.'); return; }
+    state.panels.forEach((p) => { p.photo = panel.photo; });
+    render();
+    setStatus('Every panel now shows the selected photo.');
+  });
+  $('spread-btn').addEventListener('click', () => { spreadPhotos(); render(); setStatus('Photos spread across the panels.'); });
+  $('reset-crop-btn').addEventListener('click', () => {
+    state.panels.forEach((p) => { p.dx = 0; p.dy = 0; p.zoom = 1; });
+    render();
+    setStatus('All crops reset.');
+  });
+  $('swap-btn').addEventListener('click', () => {
+    const n = state.panels.length;
+    const next = (state.selected + 1) % n;
+    [state.panels[state.selected], state.panels[next]] = [state.panels[next], state.panels[state.selected]];
+    state.selected = next;
+    render();
+    setStatus(`Swapped with panel ${next + 1}.`);
+  });
+  $('arrange-btn').addEventListener('click', () => {
+    if (photos.length) spreadPhotos();
+    state.panels.forEach((panel, i) => {
+      panel.dx = 0; panel.dy = 0;
+      panel.zoom = 1 + (i % 3) * 0.06;
+    });
+    render();
+    setStatus('Auto-arranged: photos dealt in order, crops centred.');
+  });
+  $('surprise-btn').addEventListener('click', () => surprise());
+
+  els.fileInput.addEventListener('change', async () => {
+    for (const file of els.fileInput.files) await loadFile(file);
+    els.fileInput.value = '';
+  });
+
+  const dropZone = $('drop-zone');
+  dropZone.addEventListener('dragover', (event) => { event.preventDefault(); dropZone.classList.add('over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+  dropZone.addEventListener('drop', async (event) => {
+    event.preventDefault();
+    dropZone.classList.remove('over');
+    for (const file of event.dataTransfer.files) await loadFile(file);
+  });
+
+  document.querySelectorAll('[data-sample]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      await loadSample(button.dataset.sample);
+      setStatus(`${sampleByKey(button.dataset.sample).label} added to the tray.`);
     });
   });
-  window.addEventListener('dragover', (ev) => { ev.preventDefault(); document.body.classList.add('dragging'); });
-  window.addEventListener('dragleave', () => document.body.classList.remove('dragging'));
-  window.addEventListener('drop', (ev) => {
-    ev.preventDefault();
-    document.body.classList.remove('dragging');
-    if (ev.dataTransfer?.files?.length) handleFiles([...ev.dataTransfer.files]);
+
+  document.querySelectorAll('[data-export]').forEach((button) => {
+    button.addEventListener('click', () => exportPNG(button.dataset.export));
   });
+}
 
-  $('fillAllBtn').addEventListener('click', fillAll);
-  $('spreadBtn').addEventListener('click', spread);
-  $('autoArrangeBtn').addEventListener('click', autoArrange);
-  $('swapBtn').addEventListener('click', swapWithNext);
-  $('resetCropBtn').addEventListener('click', resetCrop);
-  $('surpriseBtn').addEventListener('click', surprise);
-  $('exportBtn').addEventListener('click', exportPng);
-  $('exportBtn2').addEventListener('click', exportPng);
-
-  $('layoutSel').addEventListener('change', (ev) => { state.layout = ev.target.value; selected = 0; repaint(); });
-  $('gradeSel').addEventListener('change', (ev) => { state.grade = ev.target.value; repaint(); });
-  $('dividerSel').addEventListener('change', (ev) => { state.divider = ev.target.value; repaint(); });
-  $('captionStyleSel').addEventListener('change', (ev) => { state.captionStyle = ev.target.value; repaint(); });
-  $('captionPosSel').addEventListener('change', (ev) => { state.captionPos = ev.target.value; repaint(); });
-  $('sizeSel').addEventListener('change', (ev) => { state.size = ev.target.value; repaint(); });
-  $('titleInput').addEventListener('input', (ev) => { state.title = ev.target.value; repaint(); });
-  $('subtitleInput').addEventListener('input', (ev) => { state.subtitle = ev.target.value; repaint(); });
-  $('punchRange').addEventListener('input', (ev) => {
-    state.panels[selected].punch = Number(ev.target.value);
-    $('punchVal').textContent = `${Number(ev.target.value).toFixed(2)}×`;
-    repaint();
+function loadFile(file) {
+  if (!file.type.startsWith('image/')) return Promise.resolve();
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { addPhoto(img, file.name.replace(/\.[^.]+$/, '')); resolve(); };
+    img.onerror = () => resolve();
+    img.src = url;
   });
-  $('outlineRange').addEventListener('input', (ev) => { state.outline = Number(ev.target.value); $('outlineVal').textContent = state.outline.toFixed(1); repaint(); });
-  $('subSizeRange').addEventListener('input', (ev) => { state.subSize = Number(ev.target.value); $('subSizeVal').textContent = String(state.subSize); repaint(); });
-  $('halftoneRange').addEventListener('input', (ev) => { state.halftone = Number(ev.target.value); $('halftoneVal').textContent = String(state.halftone); repaint(); });
-  $('sharpRange').addEventListener('input', (ev) => { state.sharpAmt = Number(ev.target.value); $('sharpVal').textContent = String(state.sharpAmt); repaint(); });
-  $('grainChk').addEventListener('change', (ev) => { state.grain = ev.target.checked; repaint(); });
-  $('leakChk').addEventListener('change', (ev) => { state.leak = ev.target.checked; repaint(); });
-  $('sharpChk').addEventListener('change', (ev) => { state.sharp = ev.target.checked; repaint(); });
+}
 
-  // shot scenes for the screenshot driver
-  const params = new URLSearchParams(location.search);
-  const shot = params.get('shot');
-  if (shot && SHOT_SCENES[shot]) {
-    for (const s of SAMPLES) await loadSample(s.id);
-    applyScene(SHOT_SCENES[shot]);
-    if (shot !== 'editor') document.body.classList.add('shot');
-    if (shot === 'editor') { selected = 0; repaint(); }
-  } else {
-    for (const s of SAMPLES) await loadSample(s.id);
-    spread();
+// Surprise Me: pick a recipe that is not the current one, apply it
+// whole, and make sure some photos are on the board to enjoy it.
+async function surprise() {
+  if (!photos.length) {
+    for (const sample of SAMPLES) await loadSample(sample.key);
   }
-  try { await document.fonts.load('80px Anton'); } catch { /* fallback face */ }
-  repaint();
-  document.body.dataset.ready = '1';
+  const current = RECIPES.findIndex((r) => r.title === state.title && r.layout === state.layout);
+  let pick = Math.floor(Math.random() * RECIPES.length);
+  if (pick === current) pick = (pick + 1) % RECIPES.length;
+  const recipe = RECIPES[pick];
+  state.title = recipe.title;
+  state.subtitle = recipe.subtitle;
+  state.grade = recipe.grade;
+  state.divider = recipe.divider;
+  state.lettering = recipe.lettering;
+  state.captionPos = recipe.pos;
+  state.leak = recipe.leak;
+  state.halftone = recipe.halftone;
+  state.seed = 7 + pick * 13;
+  changeLayout(recipe.layout);
+  spreadPhotos();
+  state.panels.forEach((panel) => { panel.punch = recipe.punch; });
+  syncControls();
+  render();
+  setStatus(`Surprise: ${recipe.name}.`);
+  return recipe;
+}
+
+// --- export ------------------------------------------------------------------
+
+export function exportPNG(sizeId) {
+  const size = EXPORT_SIZES.find((s) => s.id === sizeId) || EXPORT_SIZES[0];
+  const canvas = document.createElement('canvas');
+  canvas.width = size.w;
+  canvas.height = size.h;
+  renderCover(canvas, state, images);
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `vice-cover-${size.w}x${size.h}.png`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      setStatus(`Exported ${size.w} x ${size.h} PNG.`);
+      resolve(blob);
+    }, 'image/png');
+  });
+}
+
+// --- start-up -----------------------------------------------------------------
+
+async function init() {
+  wireControls();
+  syncControls();
+  setAspect('square');
+
+  const shot = shotConfig(window.location.search);
+  if (shot) await applyShot(shot);
+
+  // A handle for the smoke test (and curious users in devtools).
+  window.__viceStudio = {
+    state, photos, images, render, surprise, exportPNG,
+    loadSample, spreadPhotos, changeLayout,
+  };
+  render();
+}
+
+async function applyShot(shot) {
+  state.layout = shot.layout;
+  state.grade = shot.grade;
+  state.divider = shot.divider;
+  state.lettering = shot.lettering;
+  state.title = shot.title;
+  state.subtitle = shot.subtitle;
+  state.captionPos = shot.captionPos;
+  state.leak = shot.leak;
+  state.halftone = shot.halftone;
+  state.panels = freshPanels(layoutById(shot.layout).panels.length);
+  for (const key of shot.photoKeys) await loadSample(key);
+  spreadPhotos();
+  state.panels.forEach((panel) => { panel.punch = shot.punch; });
+  state.selected = Math.min(shot.selected, state.panels.length - 1);
+  syncControls();
+
+  if (shot.mode === 'cover') {
+    document.body.classList.add('shot-cover');
+    els.stage.width = shot.exportW;
+    els.stage.height = shot.exportH;
+  } else {
+    document.body.classList.add('shot-editor');
+    // The editor scene frames best with a portrait canvas beside
+    // the control rail.
+    setAspect('portrait');
+  }
+  try { await document.fonts.load('80px Anton'); await document.fonts.ready; } catch { /* offline font fallback */ }
+  render();
+  window.__shotReady = true;
 }
 
 init();

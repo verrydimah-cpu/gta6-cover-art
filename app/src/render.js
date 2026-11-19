@@ -1,291 +1,377 @@
-// render.js — the one canvas renderer of Vice Cover Studio.
+// render.js — the one renderer of Vice Cover Studio.
 //
-// A single function paints a whole cover — panels, grades, dividers,
-// film finish and lettering — and it drives both the on-screen preview
-// and the PNG export, so what the editor shows is exactly what the
-// download contains. Everything is drawn from the plain state object
-// the editor keeps; nothing here reads the DOM.
+// renderCover(canvas, state, images) paints a complete cover onto
+// any canvas at whatever size that canvas is. The live preview and
+// the PNG export call this exact function, so what the user sees is
+// byte-for-byte the composition they download — only the resolution
+// changes. Everything is drawn from `state`; nothing is read from
+// the DOM, which keeps the renderer testable and deterministic.
 
-import { GRADES, filterFor } from './grades.js';
-import { LAYOUTS, panelBBox } from './layouts.js';
-import { drawBackdrop, drawCornerDressing, seeded } from './decor.js';
+import { layoutById, panelBounds } from './layouts.js';
+import { gradeById, filterFor, rgb } from './grades.js';
+import { drawDecor } from './decor.js';
 
-export const EXPORT_SIZES = {
-  square: { id: 'square', name: 'Square 1080 × 1080', w: 1080, h: 1080 },
-  portrait: { id: 'portrait', name: 'Portrait 1080 × 1350', w: 1080, h: 1350 },
-  wide: { id: 'wide', name: 'Wide 1920 × 1080', w: 1920, h: 1080 },
-};
+export const EXPORT_SIZES = [
+  { id: 'square', name: 'Square post', w: 1080, h: 1080 },
+  { id: 'portrait', name: 'Portrait post', w: 1080, h: 1350 },
+  { id: 'wide', name: 'Wide / landscape', w: 1920, h: 1080 },
+];
 
-function tracePoly(ctx, poly, W, H) {
+export const DIVIDERS = [
+  { id: 'cream', name: 'Cream' },
+  { id: 'chrome', name: 'Chrome' },
+  { id: 'neon', name: 'Neon glow' },
+];
+
+export const LETTERING = [
+  { id: 'sunset', name: 'Sunset Gradient' },
+  { id: 'chrome', name: 'Chrome' },
+  { id: 'neon', name: 'Neon Glow' },
+];
+
+function tracePath(ctx, points, W, H) {
   ctx.beginPath();
-  poly.forEach(([x, y], i) => (i ? ctx.lineTo(x * W, y * H) : ctx.moveTo(x * W, y * H)));
+  points.forEach((p, i) => {
+    if (i === 0) ctx.moveTo(p.x * W, p.y * H);
+    else ctx.lineTo(p.x * W, p.y * H);
+  });
   ctx.closePath();
 }
 
-function shadeAlpha(rgba, scale) {
-  const m = rgba.match(/rgba?\(([^)]+)\)/);
-  if (!m) return rgba;
-  const parts = m[1].split(',').map((s) => s.trim());
-  const a = parts.length > 3 ? parseFloat(parts[3]) : 1;
-  return `rgba(${parts[0]},${parts[1]},${parts[2]},${(a * scale).toFixed(3)})`;
+// The backdrop a panel shows before a photo lands in it: the grade's
+// sunset sky, top colour to bottom colour.
+function paintSky(ctx, grade, x, y, w, h) {
+  const grad = ctx.createLinearGradient(0, y, 0, y + h);
+  grade.sky.forEach((colour, i) => {
+    grad.addColorStop(i / (grade.sky.length - 1), colour);
+  });
+  ctx.fillStyle = grad;
+  ctx.fillRect(x, y, w, h);
 }
 
-// Draw one photo into a panel box with cover-fit maths: the photo is
-// scaled to cover the box, then the panel's zoom and drag offsets move
-// the crop window. dx/dy are fractions of the overflow.
-export function drawPhotoCover(ctx, img, bx, by, bw, bh, crop) {
-  const iw = img.naturalWidth || img.width;
-  const ih = img.naturalHeight || img.height;
-  if (!iw || !ih) return;
-  const zoom = Math.max(1, crop.zoom || 1);
-  const scale = Math.max(bw / iw, bh / ih) * zoom;
-  const dw = iw * scale, dh = ih * scale;
-  const ox = bx - (dw - bw) * (0.5 + (crop.dx || 0));
-  const oy = by - (dh - bh) * (0.5 + (crop.dy || 0));
-  ctx.drawImage(img, ox, oy, dw, dh);
+// Draw one photo into one panel: cover-fit the image over the panel
+// bounds, then let the crop (dx, dy in -1..1, zoom >= 0.35) slide and
+// scale it. The polygon clip does the shaping.
+function paintPhoto(ctx, img, bounds, crop, W, H) {
+  const bw = bounds.w * W;
+  const bh = bounds.h * H;
+  const bx = bounds.minX * W;
+  const by = bounds.minY * H;
+  const zoom = Math.max(0.35, crop.zoom || 1);
+  const scale = Math.max(bw / img.naturalWidth, bh / img.naturalHeight) * zoom;
+  const dw = img.naturalWidth * scale;
+  const dh = img.naturalHeight * scale;
+  const slackX = Math.max(0, dw - bw);
+  const slackY = Math.max(0, dh - bh);
+  const dx = bx + (bw - dw) / 2 + (crop.dx || 0) * slackX * 0.5;
+  const dy = by + (bh - dh) / 2 + (crop.dy || 0) * slackY * 0.5;
+  ctx.drawImage(img, dx, dy, dw, dh);
 }
 
-function paintPanel(ctx, state, grade, layout, index, W, H, photos) {
-  const poly = layout.panels[index];
-  const panel = state.panels[index] || {};
-  const bb = panelBBox(poly);
-  const bx = bb.x0 * W, by = bb.y0 * H, bw = bb.w * W, bh = bb.h * H;
-  const punch = panel.punch ?? 1;
+// The duotone wash: shadow colour multiplied into the whole panel,
+// highlight colour screened back, each at the grade's strength. Two
+// full-bounds fills — cheap, and they tie every photo together.
+function paintWash(ctx, grade, bounds, W, H) {
+  const x = bounds.minX * W;
+  const y = bounds.minY * H;
+  const w = bounds.w * W;
+  const h = bounds.h * H;
   ctx.save();
-  tracePoly(ctx, poly, W, H);
-  ctx.clip();
-  drawBackdrop(ctx, grade, bx, by, bw, bh, index);
-  const photo = panel.photo ? photos.get(panel.photo) : null;
-  if (photo && photo.img) {
-    ctx.save();
-    ctx.filter = filterFor(grade, punch);
-    drawPhotoCover(ctx, photo.img, bx, by, bw, bh, panel);
-    ctx.restore();
-    // duotone wash over the photograph, alpha breathing with punch
-    const wash = ctx.createLinearGradient(0, by, 0, by + bh);
-    const scale = 0.45 + 0.55 * punch;
-    for (const [stop, colour] of grade.wash) wash.addColorStop(stop, shadeAlpha(colour, scale));
-    ctx.fillStyle = wash;
-    ctx.fillRect(bx, by, bw, bh);
-    // corner dressing only on tall panels — on short filmstrip frames
-    // a palm crown would crowd the little picture
-    if (bh > H * 0.45) drawCornerDressing(ctx, grade, bx, by, bw, bh, index);
-  }
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalAlpha = grade.tint;
+  ctx.fillStyle = rgb(grade.shadow);
+  ctx.fillRect(x, y, w, h);
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = grade.tint * 0.8;
+  ctx.fillStyle = rgb(grade.highlight);
+  ctx.fillRect(x, y, w, h);
   ctx.restore();
 }
 
-function strokeDividers(ctx, state, grade, layout, W, H) {
-  const lw = Math.max(3, W * 0.011);
+function strokeDivider(ctx, points, W, H, style, grade) {
+  tracePath(ctx, points, W, H);
+  const unit = Math.min(W, H);
+  if (style === 'chrome') {
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, '#f8fafc');
+    grad.addColorStop(0.35, '#94a3b8');
+    grad.addColorStop(0.55, '#e2e8f0');
+    grad.addColorStop(0.75, '#64748b');
+    grad.addColorStop(1, '#f1f5f9');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = Math.max(5, unit * 0.009);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(15, 23, 42, 0.65)';
+    ctx.lineWidth = Math.max(1.2, unit * 0.0018);
+    ctx.stroke();
+  } else if (style === 'neon') {
+    ctx.save();
+    ctx.shadowColor = grade.glow || '#ff5fa2';
+    ctx.shadowBlur = unit * 0.03;
+    ctx.strokeStyle = '#fdf4ff';
+    ctx.lineWidth = Math.max(3.4, unit * 0.0055);
+    ctx.stroke();
+    ctx.stroke();
+    ctx.restore();
+    ctx.strokeStyle = grade.glow || '#ff5fa2';
+    ctx.lineWidth = Math.max(1.4, unit * 0.0022);
+    ctx.stroke();
+  } else { // cream
+    ctx.strokeStyle = '#fff6df';
+    ctx.lineWidth = Math.max(4.4, unit * 0.0075);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(88, 28, 60, 0.35)';
+    ctx.lineWidth = Math.max(1.1, unit * 0.0016);
+    ctx.stroke();
+  }
+}
+
+// Seeded film grain: one small noise tile, generated from the cover
+// seed, stamped across the frame with 'overlay' so it sits in the
+// print rather than on it.
+function paintGrain(ctx, W, H, seed) {
+  const tile = document.createElement('canvas');
+  tile.width = 180; tile.height = 180;
+  const tctx = tile.getContext('2d');
+  const data = tctx.createImageData(180, 180);
+  let a = (seed >>> 0) * 2654435761 % 4294967296 || 97;
+  for (let i = 0; i < data.data.length; i += 4) {
+    a = (Math.imul(a, 1664525) + 1013904223) >>> 0;
+    const v = 96 + (a % 64);
+    data.data[i] = v; data.data[i + 1] = v; data.data[i + 2] = v;
+    data.data[i + 3] = 255;
+  }
+  tctx.putImageData(data, 0, 0);
   ctx.save();
-  ctx.lineJoin = 'round';
-  for (const poly of layout.panels) {
-    tracePoly(ctx, poly, W, H);
-    if (state.divider === 'chrome') {
-      const g = ctx.createLinearGradient(0, 0, W, H);
-      g.addColorStop(0, '#f8f8fa'); g.addColorStop(0.28, '#8a8f9c');
-      g.addColorStop(0.5, '#e8ecf2'); g.addColorStop(0.72, '#565b68');
-      g.addColorStop(1, '#dfe3ea');
-      ctx.strokeStyle = g;
-      ctx.lineWidth = lw;
-      ctx.stroke();
-      ctx.strokeStyle = 'rgba(10,10,16,0.55)';
-      ctx.lineWidth = Math.max(1, lw * 0.18);
-      ctx.stroke();
-    } else if (state.divider === 'neon') {
-      ctx.shadowColor = grade.glow;
-      ctx.shadowBlur = lw * 2.4;
-      ctx.strokeStyle = grade.glow;
-      ctx.lineWidth = lw;
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = 'rgba(255,255,255,0.92)';
-      ctx.lineWidth = Math.max(1.2, lw * 0.32);
-      ctx.stroke();
-    } else {
-      ctx.strokeStyle = grade.frame;
-      ctx.lineWidth = lw;
-      ctx.stroke();
+  ctx.globalAlpha = 0.16;
+  ctx.globalCompositeOperation = 'overlay';
+  const pattern = ctx.createPattern(tile, 'repeat');
+  ctx.fillStyle = pattern;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+// A soft wedge of warm light leaking in from the top-left corner.
+function paintLightLeak(ctx, W, H) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(W, H) * 0.85);
+  grad.addColorStop(0, 'rgba(255, 166, 88, 0.55)');
+  grad.addColorStop(0.35, 'rgba(255, 94, 98, 0.28)');
+  grad.addColorStop(1, 'rgba(255, 94, 98, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+// Halftone dots, strongest toward the corners: a screen-print echo.
+function paintHalftone(ctx, W, H, strength) {
+  if (strength <= 0.01) return;
+  const step = Math.max(9, Math.min(W, H) * 0.016);
+  ctx.save();
+  ctx.fillStyle = 'rgba(24, 6, 38, 0.5)';
+  ctx.globalAlpha = Math.min(0.5, strength * 0.55);
+  const cx = W / 2; const cy = H / 2;
+  const maxDist = Math.hypot(cx, cy);
+  for (let y = step / 2; y < H; y += step) {
+    for (let x = step / 2; x < W; x += step) {
+      const d = Math.hypot(x - cx, y - cy) / maxDist;
+      const r = step * 0.3 * d * d;
+      if (r < 0.4) continue;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
   ctx.restore();
 }
 
-// Seeded grain: one small noise tile, generated once per render size
-// family, laid over the collage as a whisper before the lettering.
-let grainTile = null;
-function makeGrainTile() {
-  const c = document.createElement('canvas');
-  c.width = 140; c.height = 140;
-  const g = c.getContext('2d');
-  const img = g.createImageData(140, 140);
-  const rand = seeded(20261118);
-  for (let i = 0; i < img.data.length; i += 4) {
-    const v = 118 + Math.floor(rand() * 120);
-    img.data[i] = v; img.data[i + 1] = v; img.data[i + 2] = v; img.data[i + 3] = 255;
-  }
-  g.putImageData(img, 0, 0);
-  return c;
+function paintVignette(ctx, W, H) {
+  const grad = ctx.createRadialGradient(
+    W / 2, H / 2, Math.min(W, H) * 0.42,
+    W / 2, H / 2, Math.max(W, H) * 0.78,
+  );
+  grad.addColorStop(0, 'rgba(16, 2, 28, 0)');
+  grad.addColorStop(1, 'rgba(16, 2, 28, 0.34)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
 }
 
-function applyFilmFinish(ctx, state, grade, W, H) {
-  if (state.grain) {
-    if (!grainTile) grainTile = makeGrainTile();
-    ctx.save();
-    ctx.globalAlpha = 0.055;
-    ctx.globalCompositeOperation = 'overlay';
-    const pat = ctx.createPattern(grainTile, 'repeat');
-    ctx.fillStyle = pat;
-    ctx.fillRect(0, 0, W, H);
-    ctx.restore();
+// Canvas unsharp mask: out = orig + amount * (orig - blur). The blur
+// comes from a half-size copy blurred by the canvas filter, which is
+// fast enough at export sizes and needs no pixel-loop convolution.
+export function sharpen(canvas, amount) {
+  if (!amount || amount <= 0) return;
+  const W = canvas.width;
+  const H = canvas.height;
+  const blurred = document.createElement('canvas');
+  blurred.width = W; blurred.height = H;
+  const bctx = blurred.getContext('2d');
+  bctx.filter = `blur(${Math.max(1.2, W / 640).toFixed(1)}px)`;
+  bctx.drawImage(canvas, 0, 0);
+  const ctx = canvas.getContext('2d');
+  const src = ctx.getImageData(0, 0, W, H);
+  const blurData = bctx.getImageData(0, 0, W, H).data;
+  const px = src.data;
+  for (let i = 0; i < px.length; i += 4) {
+    px[i] = px[i] + amount * (px[i] - blurData[i]);
+    px[i + 1] = px[i + 1] + amount * (px[i + 1] - blurData[i + 1]);
+    px[i + 2] = px[i + 2] + amount * (px[i + 2] - blurData[i + 2]);
   }
-  if (state.leak) {
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    const burn = (x, y, r, colour) => {
-      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-      g.addColorStop(0, colour);
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(x - r, y - r, r * 2, r * 2);
-    };
-    burn(W * 0.04, H * 0.02, W * 0.55, 'rgba(255,120,60,0.34)');
-    burn(W * 0.98, H * 0.96, W * 0.5, 'rgba(255,46,136,0.26)');
-    ctx.restore();
-  }
-  const ht = state.halftone || 0;
-  if (ht > 0) {
-    // halftone dots marching across the bottom-left corner patch
-    ctx.save();
-    ctx.fillStyle = grade.frame;
-    const cell = W * 0.016;
-    const rows = 9;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < rows - r; c++) {
-        const x = c * cell + cell * 0.6, y = H - r * cell - cell * 0.6;
-        const rad = cell * 0.34 * ht * (1 - r / (rows + 2));
-        if (rad < 0.4) continue;
-        ctx.globalAlpha = 0.5 * ht;
-        ctx.beginPath();
-        ctx.arc(x, y, rad, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-    ctx.restore();
-  }
+  ctx.putImageData(src, 0, 0);
 }
 
-function gradientFrom(ctx, stops, x0, y0, x1, y1) {
-  const g = ctx.createLinearGradient(x0, y0, x1, y1);
-  stops.forEach((colour, i) => g.addColorStop(stops.length === 1 ? 0 : i / (stops.length - 1), colour));
-  return g;
+// --- captions ---------------------------------------------------------
+
+function letteringFill(ctx, style, y0, y1, grade) {
+  if (style === 'chrome') {
+    const grad = ctx.createLinearGradient(0, y0, 0, y1);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.42, '#c3ccd6');
+    grad.addColorStop(0.55, '#f4f7fa');
+    grad.addColorStop(0.72, '#7d8896');
+    grad.addColorStop(1, '#e8edf2');
+    return grad;
+  }
+  if (style === 'neon') return '#ffffff';
+  const grad = ctx.createLinearGradient(0, y0, 0, y1);
+  grad.addColorStop(0, '#ffe259');
+  grad.addColorStop(0.55, '#ff7518');
+  grad.addColorStop(1, '#ff2e88');
+  return grad;
 }
 
-const CHROME_STOPS = ['#fdfdff', '#aeb6c4', '#f4f6fa', '#6d7484', '#e8ecf4', '#3f4450'];
+function fitFontSize(ctx, text, weight, maxWidth, startSize) {
+  let size = startSize;
+  while (size > 12) {
+    ctx.font = `${weight} ${size}px Anton, 'Arial Narrow', sans-serif`;
+    if (ctx.measureText(text).width <= maxWidth) break;
+    size -= 4;
+  }
+  return size;
+}
 
-function drawLettering(ctx, state, grade, W, H) {
+function paintCaption(ctx, state, W, H, grade) {
   const title = (state.title || '').trim();
-  if (!title) return;
-  const bottom = state.captionPos !== 'top';
+  const subtitle = (state.subtitle || '').trim();
+  if (!title && !subtitle) return;
+  const unit = Math.min(W, H);
+  const atTop = state.captionPos !== 'bottom';
   ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  // backing band so the type sits on the art like a printed cover
-  const bandH = H * (state.subtitle ? 0.24 : 0.17);
-  const bandY = bottom ? H - bandH : 0;
-  const bandGrad = ctx.createLinearGradient(0, bandY, 0, bandY + bandH);
-  bandGrad.addColorStop(bottom ? 0 : 1, 'rgba(0,0,0,0)');
-  bandGrad.addColorStop(bottom ? 1 : 0, grade.band);
-  ctx.fillStyle = bandGrad;
-  ctx.fillRect(0, bandY, W, bandH);
+  try { ctx.letterSpacing = '1px'; } catch { /* older engines */ }
 
-  let size = H * 0.115;
-  const fontFor = (s) => `400 ${s}px Anton, 'Arial Black', sans-serif`;
-  ctx.font = fontFor(size);
-  const maxW = W * 0.92;
-  const tw = ctx.measureText(title.toUpperCase()).width;
-  if (tw > maxW) { size *= maxW / tw; ctx.font = fontFor(size); }
-  const titleY = bottom ? H - H * 0.085 : size + H * 0.045;
+  const outline = Math.max(0, (state.outline ?? 0.55)) * unit * 0.016;
+  const titleSize = fitFontSize(ctx, title || ' ', 400, W * 0.92, unit * 0.155);
+  const subScale = state.subSize ?? 0.34;
+  const subSize = Math.max(11, titleSize * subScale);
+  const blockH = (title ? titleSize : 0) + (subtitle ? subSize * 1.55 : 0);
+  const margin = unit * 0.045;
+  const top = atTop ? margin : H - margin - blockH;
+  let cursor = top;
 
-  const style = state.captionStyle || 'sunset';
-  let fill;
-  if (style === 'chrome') fill = gradientFrom(ctx, CHROME_STOPS, 0, titleY - size, 0, titleY);
-  else if (style === 'neon') fill = gradientFrom(ctx, grade.neonFill, 0, titleY - size, 0, titleY);
-  else fill = gradientFrom(ctx, grade.titleFill, 0, titleY - size, 0, titleY);
-
-  const outlineScale = style === 'neon' ? 0.55 : 1;
-  ctx.lineJoin = 'round';
-  ctx.miterLimit = 2;
-  if (style === 'neon') { ctx.shadowColor = grade.glow; ctx.shadowBlur = size * 0.32; }
-  ctx.strokeStyle = '#160a2a';
-  ctx.lineWidth = size * 0.1 * (state.outline ?? 1) * outlineScale;
-  ctx.strokeText(title.toUpperCase(), W / 2, titleY);
-  ctx.fillStyle = fill;
-  ctx.fillText(title.toUpperCase(), W / 2, titleY);
-  ctx.shadowBlur = 0;
-
-  const sub = (state.subtitle || '').trim();
-  if (sub) {
-    const subSize = size * 0.34 * (state.subSize ?? 1);
-    ctx.font = `400 ${subSize}px Anton, 'Arial Black', sans-serif`;
-    const subY = bottom ? titleY + subSize * 1.25 : titleY + subSize * 1.5;
-    ctx.lineWidth = subSize * 0.14 * (state.outline ?? 1) * outlineScale;
-    ctx.strokeStyle = '#160a2a';
-    ctx.strokeText(sub.toUpperCase(), W / 2, subY);
-    ctx.fillStyle = grade.subtitle;
-    ctx.fillText(sub.toUpperCase(), W / 2, subY);
-  }
-  ctx.restore();
-}
-
-// Canvas unsharp mask over the finished painting, lettering included:
-// out = orig + amount * (orig - blur). The blur comes from drawing the
-// canvas onto a scratch canvas through a blur filter. Any failure to
-// read pixels back (a tainted canvas) skips the finish quietly.
-export function applySharp(ctx, W, H, amount) {
-  if (!amount || amount <= 0) return;
-  try {
-    const src = ctx.getImageData(0, 0, W, H);
-    const scratch = document.createElement('canvas');
-    scratch.width = W; scratch.height = H;
-    const sctx = scratch.getContext('2d');
-    sctx.filter = `blur(${Math.max(1, Math.round(W / 360))}px)`;
-    sctx.drawImage(ctx.canvas, 0, 0);
-    const blurred = sctx.getImageData(0, 0, W, H);
-    const a = src.data, b = blurred.data;
-    for (let i = 0; i < a.length; i += 4) {
-      for (let k = 0; k < 3; k++) {
-        const v = a[i + k] + amount * (a[i + k] - b[i + k]);
-        a[i + k] = v < 0 ? 0 : v > 255 ? 255 : v;
-      }
+  if (title) {
+    ctx.font = `400 ${titleSize}px Anton, 'Arial Narrow', sans-serif`;
+    const baseline = cursor + titleSize * 0.88;
+    if (state.lettering === 'neon') {
+      ctx.shadowColor = grade.glow || '#22d3ee';
+      ctx.shadowBlur = unit * 0.035;
+    } else {
+      ctx.shadowColor = 'rgba(20, 4, 30, 0.45)';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = unit * 0.006;
     }
-    ctx.putImageData(src, 0, 0);
-  } catch (err) {
-    void err; // finish is optional; the cover is already painted
+    if (outline > 0.2) {
+      ctx.lineWidth = outline;
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = state.lettering === 'neon' ? '#d6246e' : '#2a0a2e';
+      ctx.strokeText(title, W / 2, baseline);
+      if (state.lettering === 'neon') ctx.strokeText(title, W / 2, baseline);
+    }
+    ctx.fillStyle = letteringFill(ctx, state.lettering, cursor, cursor + titleSize, grade);
+    ctx.fillText(title, W / 2, baseline);
+    ctx.shadowColor = 'transparent';
+    ctx.shadowOffsetY = 0;
+    cursor += titleSize * 1.04;
   }
+  if (subtitle) {
+    ctx.font = `400 ${subSize}px Anton, 'Arial Narrow', sans-serif`;
+    try { ctx.letterSpacing = `${Math.max(2, subSize * 0.22)}px`; } catch { /* fine */ }
+    const baseline = cursor + subSize * 1.25;
+    ctx.lineWidth = Math.max(1, outline * 0.4);
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(26, 6, 34, 0.8)';
+    if (outline > 0.2) ctx.strokeText(subtitle, W / 2, baseline);
+    ctx.fillStyle = state.lettering === 'chrome' ? '#eef2f6' : '#fff6df';
+    ctx.fillText(subtitle, W / 2, baseline);
+    // A hairline rule under the subtitle, in the grade's glow
+    // colour, ties the caption block to the poster's palette.
+    if (grade.glow) {
+      const ruleW = Math.min(W * 0.34, ctx.measureText(subtitle).width * 0.8);
+      ctx.fillStyle = grade.glow;
+      ctx.globalAlpha = 0.85;
+      ctx.fillRect(W / 2 - ruleW / 2, baseline + subSize * 0.42, ruleW, Math.max(2, unit * 0.004));
+      ctx.globalAlpha = 1;
+    }
+  }
+  ctx.restore();
 }
 
-// Paint the whole cover described by state into ctx at W x H.
-export function renderCover(ctx, state, W, H, photos) {
-  const grade = GRADES[state.grade] || GRADES.vice;
-  const layout = LAYOUTS[state.layout] || LAYOUTS.hero;
-  ctx.save();
-  ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = grade.sky[0];
-  ctx.fillRect(0, 0, W, H);
-  const count = layout.panels.length;
-  for (let i = 0; i < count; i++) paintPanel(ctx, state, grade, layout, i, W, H, photos);
-  strokeDividers(ctx, state, grade, layout, W, H);
-  applyFilmFinish(ctx, state, grade, W, H);
-  // outer frame in the grade's frame colour
-  ctx.strokeStyle = grade.frame;
-  ctx.lineWidth = Math.max(4, W * 0.014);
-  ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, W - ctx.lineWidth, H - ctx.lineWidth);
-  // a hairline just inside the frame, the way printed covers keyline art
-  ctx.strokeStyle = 'rgba(10,4,24,0.35)';
-  ctx.lineWidth = Math.max(1, W * 0.002);
-  const inset = W * 0.017;
-  ctx.strokeRect(inset, inset, W - inset * 2, H - inset * 2);
-  drawLettering(ctx, state, grade, W, H);
-  ctx.restore();
-  if (state.sharp) applySharp(ctx, W, H, state.sharpAmt ?? 0.6);
+// --- the cover itself --------------------------------------------------
+
+export function renderCover(canvas, state, images) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+  const layout = layoutById(state.layout);
+  const grade = gradeById(state.grade);
+
+  paintSky(ctx, grade, 0, 0, W, H);
+
+  layout.panels.forEach((points, i) => {
+    const bounds = panelBounds(points);
+    const panel = state.panels[i] || {};
+    const img = panel.photo != null ? images[panel.photo] : null;
+    ctx.save();
+    tracePath(ctx, points, W, H);
+    ctx.clip();
+    paintSky(ctx, grade, bounds.minX * W, bounds.minY * H, bounds.w * W, bounds.h * H);
+    if (img) {
+      ctx.save();
+      ctx.filter = filterFor(grade, panel.punch ?? 1);
+      paintPhoto(ctx, img, bounds, panel, W, H);
+      ctx.restore();
+      paintWash(ctx, grade, bounds, W, H);
+    }
+    if (state.decor !== false) {
+      const ink = i === 0 && !img ? 'rgba(255, 246, 223, 0.9)' : 'rgba(22, 8, 40, 0.62)';
+      drawDecor(ctx, {
+        minX: bounds.minX * W, minY: bounds.minY * H,
+        maxX: bounds.maxX * W, maxY: bounds.maxY * H,
+        w: bounds.w * W, h: bounds.h * H,
+      }, state.seed || 7, i, ink);
+    }
+    ctx.restore();
+  });
+
+  // Dividers are stroked after all panels so seams sit on top.
+  layout.panels.forEach((points) => strokeDivider(ctx, points, W, H, state.divider, grade));
+
+  // The grade's printed frame around the whole sheet.
+  if (grade.frame) {
+    ctx.save();
+    ctx.strokeStyle = grade.frame;
+    ctx.lineWidth = Math.max(6, Math.min(W, H) * 0.014);
+    ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, W - ctx.lineWidth, H - ctx.lineWidth);
+    ctx.restore();
+  }
+
+  paintVignette(ctx, W, H);
+  if (state.leak) paintLightLeak(ctx, W, H);
+  paintHalftone(ctx, W, H, state.halftone ?? 0);
+  paintCaption(ctx, state, W, H, grade);
+  if (state.grain !== false) paintGrain(ctx, W, H, state.seed || 7);
+  if (state.sharp) sharpen(canvas, state.sharpAmount ?? 0.6);
+  return canvas;
 }
