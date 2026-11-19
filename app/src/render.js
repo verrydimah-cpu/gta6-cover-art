@@ -67,7 +67,9 @@ function paintPanel(ctx, state, grade, layout, index, W, H, photos) {
     for (const [stop, colour] of grade.wash) wash.addColorStop(stop, shadeAlpha(colour, scale));
     ctx.fillStyle = wash;
     ctx.fillRect(bx, by, bw, bh);
-    drawCornerDressing(ctx, grade, bx, by, bw, bh, index);
+    // corner dressing only on tall panels — on short filmstrip frames
+    // a palm crown would crowd the little picture
+    if (bh > H * 0.45) drawCornerDressing(ctx, grade, bx, by, bw, bh, index);
   }
   ctx.restore();
 }

@@ -40,19 +40,7 @@ function frond(ctx, x, y, len, angle, width, colour) {
   ctx.quadraticCurveTo(len * 0.55, width * 0.5, 0, width * 0.55);
   ctx.closePath();
   ctx.fill();
-  // leaflet cuts along the rib
-  ctx.globalCompositeOperation = 'destination-out';
-  for (let i = 1; i <= 5; i++) {
-    const t = i / 6;
-    ctx.beginPath();
-    ctx.moveTo(len * t, width * (0.4 - t * 0.2));
-    ctx.lineTo(len * (t + 0.09), width * 1.1);
-    ctx.lineTo(len * (t + 0.16), width * (0.35 - t * 0.2));
-    ctx.closePath();
-    ctx.fill();
-  }
   ctx.restore();
-  ctx.globalCompositeOperation = 'source-over';
 }
 
 export function drawPalm(ctx, x, y, s, colour, lean = 0.22) {
@@ -190,9 +178,12 @@ export function drawBackdrop(ctx, grade, bx, by, bw, bh, panelIndex) {
 export function drawCornerDressing(ctx, grade, bx, by, bw, bh, panelIndex) {
   const rand = seeded(551 + panelIndex * 331);
   ctx.save();
-  ctx.globalAlpha = 0.85;
-  if (rand() > 0.35) drawPalm(ctx, bx + bw * 0.02, by + bh * 0.34, bh * 0.34, grade.silhouette, 0.5);
-  if (rand() > 0.55) drawPalm(ctx, bx + bw * 1.0, by + bh * 0.3, bh * 0.27, grade.silhouette, -0.55);
+  ctx.globalAlpha = 0.8;
+  // a palm crown tucked into one top corner: short trunk hugging the
+  // panel edge, fronds fanning along the top — never into the middle
+  // of the panel where a face would sit
+  if (rand() > 0.35) drawPalm(ctx, bx + bw * 0.015, by + bh * 0.2, bh * 0.19, grade.silhouette, 0.34);
+  if (rand() > 0.5) drawPalm(ctx, bx + bw * 0.985, by + bh * 0.17, bh * 0.16, grade.silhouette, -0.34);
   if (rand() > 0.4) drawBirds(ctx, bx + bw * (0.6 + rand() * 0.18), by + bh * 0.07, bw * 0.028, grade.silhouette, 2);
   ctx.restore();
 }

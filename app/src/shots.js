@@ -40,9 +40,9 @@ export const SHOT_SCENES = {
     panels: [
       panel('neon', 0, -0.05, 1.14, 1.3),
       panel('sunset', 0.05, 0, 1.2, 1.15),
-      panel('yacht', -0.04, 0.02, 1.18, 1.1),
-      panel('sunset', -0.1, 0.05, 1.35, 1.05),
-      panel(null, 0, 0, 1, 1),
+      panel('yacht', -0.04, -0.3, 1.18, 1.1),
+      panel('sunset', -0.3, 0.05, 1.55, 1.05),
+      panel('sunset', 0.1, -0.38, 1.5, 1),
     ],
   },
   editor: {
@@ -56,9 +56,9 @@ export const SHOT_SCENES = {
     panels: [
       panel('neon', 0, -0.04, 1.12, 1.25),
       panel('sunset', 0.05, 0, 1.2, 1.1),
-      panel('yacht', -0.04, 0.02, 1.18, 1.05),
-      panel('sunset', -0.1, 0.05, 1.35, 1),
-      panel(null, 0, 0, 1, 1),
+      panel('yacht', -0.04, -0.3, 1.18, 1.05),
+      panel('sunset', -0.3, 0.05, 1.55, 1),
+      panel('sunset', 0.1, -0.38, 1.5, 1),
     ],
   },
   portrait: {
@@ -73,7 +73,7 @@ export const SHOT_SCENES = {
     panels: [
       panel('sunset', 0, -0.02, 1.1, 1.2),
       panel('neon', 0, 0, 1.15, 1.1),
-      panel('yacht', 0.03, 0, 1.2, 1.05),
+      panel('yacht', -0.28, -0.1, 1.2, 1.05),
       panel('sunset', -0.06, 0.03, 1.3, 1),
       panel('neon', -0.05, -0.03, 1.25, 1.1),
     ],
