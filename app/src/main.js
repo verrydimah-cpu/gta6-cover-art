@@ -53,7 +53,7 @@ const state = {
   lightLeak: false,
   halftone: 0.5,
   sharp: true,
-  sharpAmount: 0.35,
+  sharpAmount: 0.6,
   title: titleInput.value,
   subtitle: subtitleInput.value,
   panels: Array.from({ length: 6 }, blankPanel),

@@ -9,7 +9,7 @@
 export const GRADES = {
   sunset: {
     name: 'Vice Sunset',
-    filter: 'saturate(1.38) contrast(1.09) brightness(1.03)',
+    filter: 'saturate(1.46) contrast(1.13) brightness(1.03)',
     // Duotone wash, top to bottom: violet dusk, clear middle, hot coral foot.
     wash: [
       [0, 'rgba(58, 26, 128, 0.62)'],

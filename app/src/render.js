@@ -388,7 +388,7 @@ export function renderCover(ctx, w, h, state) {
   drawFilmFinish(ctx, w, h, state);
   drawCaption(ctx, w, h, state, grade);
   // Sharp finish last, over art and lettering alike — skipped quietly if the canvas cannot be read.
-  const sharpAmount = state.sharp === false ? 0 : Math.max(0, Math.min(1, state.sharpAmount ?? 0.35));
+  const sharpAmount = state.sharp === false ? 0 : Math.max(0, Math.min(1, state.sharpAmount ?? 0.6));
   if (sharpAmount > 0) {
     try { drawSharpFinish(ctx, w, h, sharpAmount); } catch { /* an unreadable canvas keeps the soft painting */ }
   }
