@@ -1,45 +1,34 @@
-// Vice Cover Studio — tiny local preview server.
-// Serves the static app/ folder over HTTP so the studio can be tried in
-// a desktop browser and screenshotted. Node standard library only; the
-// app itself also works from any other static file server.
-
+// VICE COVER STUDIO — tiny local static server for trying the app.
+// Run: node serve.ts  (then open the printed address in a desktop browser)
+// Set PORT to serve on a different port; paths cannot escape app/.
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
-import { join, extname, normalize } from 'node:path';
+import { dirname, join, normalize } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const PORT = Number(process.env.PORT || 8080);
-const APP_DIR = join(import.meta.dirname, 'app');
-
-const MIME_TYPES: Record<string, string> = {
+const root = join(dirname(fileURLToPath(import.meta.url)), 'app');
+const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
+  '.json': 'application/json',
+  '.ttf': 'font/ttf',
+  '.webp': 'image/webp',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.ttf': 'font/ttf',
   '.txt': 'text/plain; charset=utf-8',
-  '.svg': 'image/svg+xml',
 };
-
-const server = createServer((req, res) => {
-  const url = new URL(req.url || '/', 'http://localhost');
-  let pathname = decodeURIComponent(url.pathname);
-  if (pathname === '/') pathname = '/index.html';
-  const filePath = normalize(join(APP_DIR, pathname));
-  if (!filePath.startsWith(APP_DIR) || !existsSync(filePath) || !statSync(filePath).isFile()) {
-    res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-    res.end('Not found: ' + pathname);
+const port = Number(process.env.PORT || 8080);
+createServer((req, res) => {
+  const path = normalize(decodeURIComponent((req.url || '/').split('?')[0]));
+  const rel = path === '/' ? 'index.html' : path.replace(/^\/+/, '');
+  const file = join(root, rel);
+  if (!file.startsWith(root) || !existsSync(file) || !statSync(file).isFile()) {
+    res.writeHead(404, { 'content-type': 'text/plain' });
+    res.end('not found');
     return;
   }
-  const type = MIME_TYPES[extname(filePath).toLowerCase()] || 'application/octet-stream';
-  res.writeHead(200, { 'content-type': type, 'cache-control': 'no-store' });
-  res.end(readFileSync(filePath));
-});
-
-server.listen(PORT, () => {
-  console.log('Vice Cover Studio at http://localhost:' + PORT);
-});
+  const ext = rel.slice(rel.lastIndexOf('.'));
+  res.writeHead(200, { 'content-type': TYPES[ext] || 'application/octet-stream' });
+  res.end(readFileSync(file));
+}).listen(port, () => console.log(`Vice Cover Studio at http://localhost:${port}`));
