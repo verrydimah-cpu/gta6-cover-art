@@ -1,125 +1,236 @@
-// Vector decor motifs drawn straight onto the cover canvas.
-// Full-strength decor dresses gradient panels; photo panels receive
-// the same motifs as quiet corner dressing at low opacity so the
-// photography stays the hero of every panel.
+// Vice Cover Studio — canvas decor.
+// All decor is drawn with paths on the 2D canvas: palm silhouettes, a
+// scanline-cut sun disc, stars, shore waves, birds and a perspective
+// grid horizon. Photo-less panels get the full scene; photo panels get
+// only a small, quiet corner cluster so the photograph stays the hero.
+// A tiny seeded random keeps every render of the same state identical.
 
-function tracePath(ctx, pts, close) {
-  ctx.beginPath();
-  pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
-  if (close) ctx.closePath();
+'use strict';
+
+// Deterministic pseudo-random source (mulberry32) so decor never
+// flickers between the preview and the exported PNG.
+function vcsSeededRandom(seed) {
+  let t = seed >>> 0;
+  return function () {
+    t += 0x6d2b79f5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
-export function drawPalmFrond(ctx, x, y, size, flip) {
+// A palm silhouette: a curved trunk and seven drooping fronds, drawn in
+// one ink colour. Size is the trunk length in pixels.
+function vcsDrawPalm(ctx, x, y, size, ink, lean) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.scale(flip ? -1 : 1, 1);
-  ctx.lineWidth = size * 0.045;
+  ctx.strokeStyle = ink;
+  ctx.fillStyle = ink;
   ctx.lineCap = 'round';
-  for (let i = 0; i < 6; i++) {
-    const a = -0.25 - i * 0.32;
-    const len = size * (0.72 + 0.28 * Math.sin(i * 1.7));
+  ctx.lineWidth = Math.max(2, size * 0.045);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(size * 0.10 * lean, -size * 0.5, size * 0.30 * lean, -size * 0.92);
+  ctx.stroke();
+  const topX = size * 0.30 * lean;
+  const topY = -size * 0.92;
+  const fronds = [-2.6, -2.0, -1.45, -0.85, -0.25, 0.35, 0.95];
+  ctx.lineWidth = Math.max(1.6, size * 0.03);
+  for (const angle of fronds) {
+    const reach = size * (0.52 + 0.10 * Math.cos(angle));
+    const endX = topX + Math.cos(angle) * reach;
+    const endY = topY + Math.abs(Math.sin(angle)) * size * 0.30 + size * 0.10;
+    const midX = topX + Math.cos(angle) * reach * 0.5;
+    const midY = topY - size * 0.16 + Math.sin(angle) * size * 0.05;
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.quadraticCurveTo(
-      Math.cos(a) * len * 0.55, Math.sin(a) * len * 0.55 - size * 0.1,
-      Math.cos(a) * len, Math.sin(a) * len + size * 0.16,
-    );
+    ctx.moveTo(topX, topY);
+    ctx.quadraticCurveTo(midX, midY, endX, endY);
     ctx.stroke();
   }
-  ctx.restore();
-}
-
-export function drawSunDisc(ctx, cx, cy, r) {
-  ctx.save();
-  for (let i = 0; i < 7; i++) {
-    const y = cy - r + (i * 2 * r) / 7;
-    if (i > 3) continue;
-    ctx.beginPath();
-    ctx.arc(cx, y, r * 0.16, 0, Math.PI * 2);
-    ctx.fill();
-  }
   ctx.beginPath();
-  ctx.arc(cx, cy, r, Math.PI, Math.PI * 2);
+  ctx.arc(topX - size * 0.05, topY + size * 0.05, size * 0.045, 0, Math.PI * 2);
+  ctx.arc(topX + size * 0.06, topY + size * 0.07, size * 0.038, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
 
-export function drawStar(ctx, cx, cy, r) {
-  const pts = [];
-  for (let i = 0; i < 8; i++) {
-    const a = (i * Math.PI) / 4 - Math.PI / 2;
-    const rad = i % 2 === 0 ? r : r * 0.34;
-    pts.push([cx + Math.cos(a) * rad, cy + Math.sin(a) * rad]);
+// The poster sun: a filled disc sliced by horizontal scanline cuts that
+// grow wider toward the bottom, exactly the retro poster gesture.
+function vcsDrawSunDisc(ctx, cx, cy, radius, grade) {
+  const sun = grade.sun;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.clip();
+  const disc = ctx.createLinearGradient(cx, cy - radius, cx, cy + radius);
+  disc.addColorStop(0, sun.colour);
+  disc.addColorStop(1, sun.rim);
+  ctx.fillStyle = disc;
+  ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+  ctx.globalCompositeOperation = 'destination-out';
+  let cutY = cy + radius * 0.08;
+  let cutH = radius * 0.03;
+  for (let i = 0; i < sun.cutLines; i++) {
+    ctx.fillRect(cx - radius, cutY, radius * 2, cutH);
+    cutY += cutH + radius * (0.16 - i * 0.012);
+    cutH *= 1.45;
   }
-  tracePath(ctx, pts, true);
-  ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.strokeStyle = sun.rim;
+  ctx.lineWidth = Math.max(1.5, radius * 0.02);
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, Math.PI * 1.05, Math.PI * 1.95);
+  ctx.stroke();
+  ctx.restore();
 }
 
-export function drawWaves(ctx, x, y, w, rows) {
+// A scatter of small stars in the upper part of a rect.
+function vcsDrawStars(ctx, x, y, w, h, count, rand, ink) {
   ctx.save();
-  ctx.lineWidth = Math.max(2, w * 0.008);
-  for (let r = 0; r < rows; r++) {
+  ctx.fillStyle = ink;
+  for (let i = 0; i < count; i++) {
+    const sx = x + rand() * w;
+    const sy = y + rand() * h * 0.45;
+    const r = 0.8 + rand() * 1.9;
+    ctx.globalAlpha = 0.25 + rand() * 0.65;
     ctx.beginPath();
-    const yy = y + r * w * 0.045;
-    for (let px = 0; px <= w; px += w / 24) {
-      const py = yy + Math.sin((px / w) * Math.PI * 4 + r) * w * 0.012;
-      if (px === 0) ctx.moveTo(x + px, py); else ctx.lineTo(x + px, py);
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.fill();
+    if (rand() > 0.82) {
+      ctx.fillRect(sx - r * 3, sy - 0.6, r * 6, 1.2);
+      ctx.fillRect(sx - 0.6, sy - r * 3, 1.2, r * 6);
+    }
+  }
+  ctx.restore();
+}
+
+// Layered shore waves along the bottom of a rect.
+function vcsDrawWaves(ctx, x, y, w, h, ink) {
+  ctx.save();
+  ctx.strokeStyle = ink;
+  ctx.lineCap = 'round';
+  for (let row = 0; row < 3; row++) {
+    const baseY = y + h * (0.86 + row * 0.05);
+    ctx.globalAlpha = 0.5 - row * 0.13;
+    ctx.lineWidth = Math.max(1.4, h * 0.006) + row * 0.7;
+    ctx.beginPath();
+    const amp = h * 0.012;
+    const wavelength = w / (5 + row);
+    for (let px = 0; px <= w; px += 6) {
+      const py = baseY + Math.sin((px / wavelength) * Math.PI * 2 + row * 1.7) * amp;
+      if (px === 0) ctx.moveTo(x + px, py);
+      else ctx.lineTo(x + px, py);
     }
     ctx.stroke();
   }
   ctx.restore();
 }
 
-export function drawBirds(ctx, x, y, s) {
+// Two or three simple gull marks: short double arcs.
+function vcsDrawBirds(ctx, x, y, w, h, count, rand, ink) {
   ctx.save();
-  ctx.lineWidth = Math.max(1.6, s * 0.09);
+  ctx.strokeStyle = ink;
   ctx.lineCap = 'round';
-  const bird = (bx, by, bs) => {
+  ctx.lineWidth = Math.max(1.3, w * 0.0035);
+  for (let i = 0; i < count; i++) {
+    const bx = x + (0.15 + rand() * 0.7) * w;
+    const by = y + (0.10 + rand() * 0.25) * h;
+    const s = w * (0.016 + rand() * 0.014);
+    ctx.globalAlpha = 0.55 + rand() * 0.3;
     ctx.beginPath();
-    ctx.moveTo(bx - bs, by);
-    ctx.quadraticCurveTo(bx - bs * 0.3, by - bs * 0.7, bx, by);
-    ctx.quadraticCurveTo(bx + bs * 0.3, by - bs * 0.7, bx + bs, by);
+    ctx.moveTo(bx - s, by);
+    ctx.quadraticCurveTo(bx - s * 0.4, by - s * 0.7, bx, by);
+    ctx.quadraticCurveTo(bx + s * 0.4, by - s * 0.7, bx + s, by);
     ctx.stroke();
-  };
-  bird(x, y, s);
-  bird(x + s * 2.4, y + s * 0.7, s * 0.7);
-  bird(x + s * 1.1, y - s * 0.9, s * 0.55);
+  }
   ctx.restore();
 }
 
-// Corner dressing for a photo panel: a palm silhouette tucked into
-// the lower corner plus two small sparkles, kept whisper-quiet at
-// roughly a fifth opacity so it reads as print texture, not clip art.
-export function drawPanelCornerDecor(ctx, b, seed, colour) {
+// A perspective grid running from the horizon to the bottom edge, the
+// synthwave floor that anchors the empty panels.
+function vcsDrawGridHorizon(ctx, x, y, w, h, horizonY, ink) {
   ctx.save();
-  const s = Math.min(b.w, b.h);
-  const left = seed % 2 === 0;
-  // The palm reads as a deep plum silhouette against bright skies;
-  // a cream stroke would vanish on a sunlit photograph.
-  ctx.globalAlpha = 0.24;
-  ctx.strokeStyle = '#20082e';
-  drawPalmFrond(ctx, left ? b.minX + s * 0.06 : b.maxX - s * 0.06, b.maxY - s * 0.04, s * 0.52, !left);
-  ctx.globalAlpha = 0.34;
-  ctx.strokeStyle = colour;
-  ctx.fillStyle = colour;
-  drawStar(ctx, b.minX + b.w * (0.14 + (seed % 3) * 0.06), b.minY + b.h * 0.16, s * 0.035);
-  drawStar(ctx, b.maxX - b.w * 0.12, b.minY + b.h * (0.3 + (seed % 2) * 0.12), s * 0.025);
+  ctx.strokeStyle = ink;
+  ctx.globalAlpha = 0.30;
+  ctx.lineWidth = Math.max(1, w * 0.0022);
+  const vanishX = x + w * 0.5;
+  for (let i = -8; i <= 8; i++) {
+    ctx.beginPath();
+    ctx.moveTo(vanishX, horizonY);
+    ctx.lineTo(x + w * 0.5 + i * w * 0.16, y + h);
+    ctx.stroke();
+  }
+  let t = 0;
+  for (let row = 0; row < 6; row++) {
+    t += (row + 1) * 0.055;
+    const gy = horizonY + (y + h - horizonY) * Math.min(1, t);
+    ctx.globalAlpha = 0.16 + row * 0.035;
+    ctx.beginPath();
+    ctx.moveTo(x, gy);
+    ctx.lineTo(x + w, gy);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
-// Full decor for panels without a photo: sun, palms, waves, birds.
-export function drawPanelFullDecor(ctx, b, gradeGlow) {
+// A low skyline silhouette sitting on the horizon: uneven towers with
+// a few lit windows, kept dark so the sun stays the brightest shape.
+function vcsDrawSkyline(ctx, x, y, w, horizonY, rand, ink) {
   ctx.save();
-  ctx.strokeStyle = gradeGlow;
-  ctx.fillStyle = gradeGlow;
-  ctx.globalAlpha = 0.85;
-  const s = Math.min(b.w, b.h);
-  drawSunDisc(ctx, b.minX + b.w * 0.5, b.minY + b.h * 0.52, s * 0.3);
-  ctx.globalAlpha = 0.9;
-  drawPalmFrond(ctx, b.minX + s * 0.1, b.maxY - s * 0.05, s * 0.85, false);
-  drawPalmFrond(ctx, b.maxX - s * 0.1, b.maxY - s * 0.05, s * 0.7, true);
-  ctx.globalAlpha = 0.65;
-  drawWaves(ctx, b.minX + b.w * 0.12, b.maxY - b.h * 0.16, b.w * 0.76, 3);
-  drawBirds(ctx, b.minX + b.w * 0.62, b.minY + b.h * 0.18, s * 0.07);
+  ctx.fillStyle = ink;
+  let cx = x - w * 0.02;
+  while (cx < x + w) {
+    const bw = w * (0.05 + rand() * 0.09);
+    const bh = (horizonY - y) * (0.18 + rand() * 0.3);
+    ctx.fillRect(cx, horizonY - bh, bw, bh);
+    if (rand() > 0.6) ctx.fillRect(cx + bw * 0.3, horizonY - bh - bw * 0.18, bw * 0.4, bw * 0.18);
+    ctx.fillStyle = 'rgba(255,210,62,0.75)';
+    for (let win = 0; win < 3; win++) {
+      if (rand() > 0.5) {
+        ctx.fillRect(cx + bw * (0.2 + rand() * 0.6), horizonY - bh * (0.25 + rand() * 0.6), 2.2, 3);
+      }
+    }
+    ctx.fillStyle = ink;
+    cx += bw + w * 0.012;
+  }
+  ctx.restore();
+}
+
+// The full scene for a photo-less panel. The caller clips to the panel
+// first; bounds are the panel's bounding box in canvas pixels and seed
+// varies per panel so no two skies are quite the same.
+function vcsDrawFullDecor(ctx, bounds, grade, seed) {
+  const x = bounds.x, y = bounds.y, w = bounds.w, h = bounds.h;
+  const rand = vcsSeededRandom(seed * 7919 + 17);
+  const ink = 'rgba(12,2,24,0.85)';
+  const horizonY = y + h * grade.sun.y;
+  vcsDrawStars(ctx, x, y, w, h, Math.round(w / 26), rand, '#ffffff');
+  vcsDrawSkyline(ctx, x, y, w, horizonY, rand, 'rgba(16,4,30,0.8)');
+  vcsDrawSunDisc(ctx, x + w * (0.34 + rand() * 0.32), horizonY, Math.min(w, h) * grade.sun.radius, grade);
+  vcsDrawGridHorizon(ctx, x, y, w, h, horizonY, grade.horizon);
+  vcsDrawPalm(ctx, x + w * 0.10, y + h * 0.97, h * 0.52, ink, 1);
+  if (w > 260) vcsDrawPalm(ctx, x + w * 0.94, y + h * 0.99, h * 0.40, ink, -1);
+  vcsDrawBirds(ctx, x, y, w, h, 3, rand, 'rgba(10,4,20,0.8)');
+  vcsDrawWaves(ctx, x, y, w, h, grade.horizon);
+}
+
+// The quiet corner cluster allowed on photo panels: one small palm and
+// a few stars at low opacity in the panel's emptiest corner.
+function vcsDrawCornerDecor(ctx, bounds, grade, seed) {
+  const x = bounds.x, y = bounds.y, w = bounds.w, h = bounds.h;
+  const rand = vcsSeededRandom(seed * 104729 + 5);
+  // Kept deliberately small and faint: sized from the panel's smaller
+  // dimension so tall wedge panels never grow a giant palm, and light
+  // enough to read as a printed watermark rather than a scribble.
+  const palmSize = Math.min(w, h) * 0.34;
+  ctx.save();
+  ctx.globalAlpha = 0.16;
+  vcsDrawPalm(ctx, x + w * 0.05, y + h * 0.995, palmSize, 'rgba(8,2,16,0.9)', 1);
+  ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = 0.45;
+  vcsDrawStars(ctx, x + w * 0.55, y, w * 0.45, h * 0.5, 6, rand, '#ffffff');
   ctx.restore();
 }

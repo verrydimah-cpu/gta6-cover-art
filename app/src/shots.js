@@ -1,53 +1,125 @@
-// Screenshot-mode state parsing for Vice Cover Studio.
-// When the page URL carries a shot parameter, main.js boots straight
-// into the described cover or editor state at full viewport so the
-// maker can capture honest screenshots of the real app. Unknown
-// sample names are dropped, never guessed, so a stale spec fails
-// visibly instead of silently swapping in the wrong photograph.
+// Vice Cover Studio — export sizes, Surprise Me recipes, shot states.
+// The three export sizes are the common post formats. The recipes are
+// nine curated combinations a visitor can cycle with one button. The
+// shot states describe the four screenshots: they name real app states
+// (sample assignments are by sample id) so a capture can rebuild them
+// exactly through the app's own controls.
 
-export const SAMPLE_FILES = {
-  'neon-woman': 'samples/neon-woman.webp',
-  'sunset-car': 'samples/sunset-car.webp',
-  'yacht-man': 'samples/yacht-man.webp',
-  'speedboat': 'samples/speedboat.webp',
-};
+'use strict';
 
-export const SAMPLE_ORDER = ['neon-woman', 'sunset-car', 'yacht-man', 'speedboat'];
+const VCS_EXPORT_SIZES = [
+  { id: 'square', name: 'Square', w: 1080, h: 1080, note: 'Feed post, 1:1' },
+  { id: 'portrait', name: 'Portrait', w: 1080, h: 1350, note: 'Tall post, 4:5' },
+  { id: 'wide', name: 'Wide', w: 1920, h: 1080, note: 'Banner, 16:9' },
+];
 
-const EXPORT_RE = /^\d{3,4}x\d{3,4}$/;
+const VCS_SAMPLES = [
+  { id: 'sunset-car', name: 'Sunset Car', file: 'samples/sunset-car.webp' },
+  { id: 'yacht-man', name: 'Yacht Man', file: 'samples/yacht-man.webp' },
+  { id: 'neon-woman', name: 'Neon Woman', file: 'samples/neon-woman.webp' },
+  { id: 'speedboat', name: 'Speedboat', file: 'samples/speedboat.webp' },
+];
 
-export function parseShotState(search) {
-  const q = new URLSearchParams(search || '');
-  if (!q.has('shot')) return null;
-  const num = (key, fallback) => {
-    const v = Number(q.get(key));
-    return Number.isFinite(v) ? v : fallback;
-  };
-  const photos = (q.get('photos') || 'neon-woman')
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => SAMPLE_FILES[s]);
-  const exp = q.get('export') || '';
-  return {
-    mode: q.get('shot') === 'editor' ? 'editor' : 'cover',
-    layout: q.get('layout') || 'hero-collage',
-    grade: q.get('grade') || 'vice-sunset',
-    divider: q.get('divider') || 'cream',
-    lettering: q.get('lettering') || 'sunset',
-    title: q.get('title') || 'NEON VICE',
-    subtitle: q.get('subtitle') || '',
-    pos: q.get('pos') || 'top',
-    photos: photos.length ? photos : ['neon-woman'],
-    punch: num('punch', 1.15),
-    halftone: num('halftone', 0.25),
-    leak: num('leak', 1),
-    sharp: num('sharp', 0.6),
-    exportSize: EXPORT_RE.test(exp) ? exp : '1920x1080',
-    selected: Math.max(0, Math.floor(num('selected', 0))),
-  };
-}
+// Nine curated recipes: layout, grade, caption furniture and per-panel
+// punch presets. Photos are left alone so a surprise never throws away
+// the visitor's own pictures; sample covers fill empty panels instead.
+const VCS_RECIPES = [
+  { name: 'Postcard Vice', layoutId: 'vice-quad', gradeId: 'vice-sunset', captionStyle: 'stacked', divider: 'neon', caption: 'VICE HEAT', subtitle: 'One city, no brakes' },
+  { name: 'Midnight Circuit', layoutId: 'fan-five', gradeId: 'neon-night', captionStyle: 'banner', divider: 'neon', caption: 'NEON MILES', subtitle: 'The city never logs off' },
+  { name: 'Steel & Amber', layoutId: 'skyline-bands', gradeId: 'chrome-dusk', captionStyle: 'bar', divider: 'chrome', caption: 'CHROME DUSK', subtitle: 'Steel blue, amber hearts' },
+  { name: 'Golden Getaway', layoutId: 'twin-slash', gradeId: 'golden-hour', captionStyle: 'stacked', divider: 'torn', caption: 'GOLDEN GETAWAY', subtitle: 'Chase the light home' },
+  { name: 'Diamond Run', layoutId: 'diamond-center', gradeId: 'vice-sunset', captionStyle: 'banner', divider: 'chrome', caption: 'DIAMOND RUN', subtitle: 'One hero, four corners' },
+  { name: 'Grand Collage', layoutId: 'grand-six', gradeId: 'neon-night', captionStyle: 'stacked', divider: 'neon', caption: 'GRAND COLLAGE', subtitle: 'Six panels, zero mercy' },
+  { name: 'Shore Leave', layoutId: 'fan-five', gradeId: 'golden-hour', captionStyle: 'bar', divider: 'torn', caption: 'SHORE LEAVE', subtitle: 'Salt air, fast boats' },
+  { name: 'Skyline Shift', layoutId: 'skyline-bands', gradeId: 'vice-sunset', captionStyle: 'stacked', divider: 'chrome', caption: 'SKYLINE SHIFT', subtitle: 'Every band a story' },
+  { name: 'Twin Peaks Vice', layoutId: 'twin-slash', gradeId: 'neon-night', captionStyle: 'banner', divider: 'torn', caption: 'TWIN SLASH', subtitle: 'Cut the night in two' },
+];
 
-export function shotExportPixels(state) {
-  const [w, h] = state.exportSize.split('x').map(Number);
-  return { w: w || 1920, h: h || 1080 };
-}
+// The four screenshot states. Panels list sample ids in reading order;
+// null keeps the grade gradient and full decor in that panel. Punch is
+// zoom plus focal point per panel.
+const VCS_SHOT_STATES = [
+  {
+    shot: '1-cover',
+    kind: 'export',
+    size: 'square',
+    state: {
+      layoutId: 'vice-quad',
+      gradeId: 'vice-sunset',
+      caption: 'VICE HEAT',
+      subtitle: 'One city, no brakes',
+      captionStyle: 'stacked',
+      divider: 'neon',
+      sharp: 0.6,
+      panels: [
+        { sample: 'sunset-car', zoom: 1.32, fx: 0.5, fy: 0.42 },
+        { sample: 'yacht-man', zoom: 1.26, fx: 0.5, fy: 0.38 },
+        { sample: 'neon-woman', zoom: 1.28, fx: 0.5, fy: 0.40 },
+        { sample: 'speedboat', zoom: 1.34, fx: 0.5, fy: 0.48 },
+      ],
+    },
+  },
+  {
+    shot: '2-editor',
+    kind: 'editor',
+    size: 'wide',
+    state: {
+      layoutId: 'grand-six',
+      gradeId: 'vice-sunset',
+      caption: 'VICE HEAT',
+      subtitle: 'One city, no brakes',
+      captionStyle: 'stacked',
+      divider: 'neon',
+      sharp: 0.6,
+      panels: [
+        { sample: 'sunset-car', zoom: 1.2, fx: 0.5, fy: 0.45 },
+        { sample: 'neon-woman', zoom: 1.2, fx: 0.5, fy: 0.42 },
+        { sample: 'speedboat', zoom: 1.2, fx: 0.5, fy: 0.5 },
+        { sample: 'yacht-man', zoom: 1.2, fx: 0.5, fy: 0.4 },
+        { sample: null, zoom: 1, fx: 0.5, fy: 0.5 },
+        { sample: null, zoom: 1, fx: 0.5, fy: 0.5 },
+      ],
+    },
+  },
+  {
+    shot: '3-portrait',
+    kind: 'export',
+    size: 'portrait',
+    state: {
+      layoutId: 'skyline-bands',
+      gradeId: 'golden-hour',
+      caption: 'GOLDEN GETAWAY',
+      subtitle: 'Chase the light home',
+      captionStyle: 'stacked',
+      divider: 'torn',
+      sharp: 0.6,
+      panels: [
+        { sample: 'speedboat', zoom: 1.3, fx: 0.5, fy: 0.55 },
+        { sample: 'sunset-car', zoom: 1.25, fx: 0.5, fy: 0.45 },
+        { sample: 'yacht-man', zoom: 1.25, fx: 0.5, fy: 0.28 },
+        { sample: 'neon-woman', zoom: 1.12, fx: 0.5, fy: 0.08 },
+      ],
+    },
+  },
+  {
+    shot: '4-square',
+    kind: 'export',
+    size: 'square',
+    state: {
+      layoutId: 'diamond-center',
+      gradeId: 'neon-night',
+      caption: 'NEON MILES',
+      subtitle: 'The city never logs off',
+      captionStyle: 'banner',
+      divider: 'neon',
+      sharp: 0.6,
+      panels: [
+        { sample: 'neon-woman', zoom: 1.25, fx: 0.5, fy: 0.42 },
+        { sample: 'sunset-car', zoom: 1.3, fx: 0.5, fy: 0.45 },
+        { sample: 'speedboat', zoom: 1.2, fx: 0.5, fy: 0.5 },
+        { sample: 'yacht-man', zoom: 1.2, fx: 0.5, fy: 0.4 },
+        { sample: null, zoom: 1, fx: 0.5, fy: 0.5 },
+      ],
+    },
+  },
+];

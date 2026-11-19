@@ -1,32 +1,31 @@
-// Vice Cover Studio — handover program for gta6-cover-art-01.
-// Copies the static studio and its screenshots into the output
-// directory, then writes the dossier with the kit library so the
-// handed-in dossier matches the scorer byte for byte.
-// Local run: mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
-// The run is deterministic: identical input, identical bytes out.
+// Vice Cover Studio — entry program.
+// Hands the app in: copies app/ and screenshots/ from this repository
+// into the output directory and writes the dossier the scorer checks,
+// using the kit's own buildDossier so the bytes match by construction.
+// Outside the grader, MAKEFUN_OUTPUT_DIR stands in for /output.
 
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-app.ts';
 
-const repoRoot = fileURLToPath(new URL('.', import.meta.url));
-const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+const repoRoot = import.meta.dirname;
+const outputDir = process.env.MAKEFUN_OUTPUT_DIR || '/output';
 
+// Start from a clean output so a stale file can never leak into a run
+// and break the byte-for-byte dossier comparison.
+rmSync(outputDir, { recursive: true, force: true });
 mkdirSync(outputDir, { recursive: true });
-cpSync(join(repoRoot, 'app'), join(outputDir, 'app'), { recursive: true });
-mkdirSync(join(outputDir, 'screenshots'), { recursive: true });
-const shotsDir = join(repoRoot, 'screenshots');
-if (existsSync(shotsDir)) {
-  cpSync(shotsDir, join(outputDir, 'screenshots'), { recursive: true });
-}
 
-const dossierBytes = buildDossier(outputDir, {
+cpSync(join(repoRoot, 'app'), join(outputDir, 'app'), { recursive: true });
+cpSync(join(repoRoot, 'screenshots'), join(outputDir, 'screenshots'), { recursive: true });
+
+const dossier = buildDossier(outputDir, {
   text_max_bytes: 163840,
   screenshots: { max: 4, max_bytes: 262144 },
   app_max_files: 993,
   app_max_bytes: 50331648,
-  app_path_max_bytes: 1000,
 });
-writeFileSync(join(outputDir, 'dossier.json'), dossierBytes);
-console.log('dossier written:', dossierBytes.length, 'bytes ->', outputDir);
+writeFileSync(join(outputDir, 'dossier.json'), dossier);
+
+console.log('Vice Cover Studio handed in: dossier.json is ' + dossier.length + ' bytes at ' + outputDir);
+console.log('Re-running main.ts must produce a byte-identical dossier.json.');
