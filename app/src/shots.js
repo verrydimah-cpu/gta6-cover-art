@@ -30,9 +30,26 @@ function numberListParam(query, name) {
   return list.map((item) => Number.parseFloat(item) || 0);
 }
 
+/** Reads one numeric query value, or undefined when absent or not a number. */
+function numberParam(query, name) {
+  const raw = query.get(name);
+  if (raw === null) return undefined;
+  const value = Number.parseFloat(raw);
+  return Number.isNaN(value) ? undefined : value;
+}
+
+/** Reads a 0/1 flag query value, or undefined when absent. */
+function flagParam(query, name) {
+  const raw = query.get(name);
+  if (raw === null) return undefined;
+  return raw !== '0';
+}
+
 /**
  * Reads the shot scene from the URL, or returns null for the normal studio. The scene names the layout,
- * grade, caption, panel assignments (sample keys, in panel order) and per-panel zoom and pan values.
+ * grade, divider and caption styles, the caption and its tuning (outline weight, subtitle scale), the
+ * film finish (grain, light leak, halftone), the sharp finish (sharp, sharpamt), the panel assignments
+ * (sample keys, in panel order) and per-panel zoom, pan and punch values.
  */
 export function readShotSetup() {
   const query = new URLSearchParams(location.search);
@@ -44,13 +61,23 @@ export function readShotSetup() {
     height: Number.parseInt(query.get('h') ?? '', 10) || 0,
     layout: query.get('layout') ?? undefined,
     grade: query.get('grade') ?? undefined,
+    dividerStyle: query.get('divider') ?? undefined,
+    captionStyle: query.get('cstyle') ?? undefined,
     title: query.get('title') ?? undefined,
     subtitle: query.get('subtitle') ?? undefined,
     captionPos: query.get('pos') ?? undefined,
+    outlineWeight: numberParam(query, 'outline'),
+    subtitleScale: numberParam(query, 'subscale'),
+    grain: flagParam(query, 'grain'),
+    lightLeak: flagParam(query, 'leak'),
+    halftone: numberParam(query, 'halftone'),
+    sharp: flagParam(query, 'sharp'),
+    sharpAmount: numberParam(query, 'sharpamt'),
     assign: listParam(query, 'assign'),
     zooms: numberListParam(query, 'zoom'),
     dxs: numberListParam(query, 'dx'),
     dys: numberListParam(query, 'dy'),
+    punches: numberListParam(query, 'punch'),
     selected: Number.parseInt(query.get('selected') ?? '', 10),
   };
 }

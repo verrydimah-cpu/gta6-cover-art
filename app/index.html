@@ -26,8 +26,9 @@
         <span class="sample-label">Try a sample:</span>
         <div id="sampleButtons" class="sample-buttons"></div>
       </div>
+      <button id="surpriseButton" class="surprise" type="button">✦ Surprise me — build a whole cover</button>
       <div id="tray" class="tray" aria-label="Your photos"></div>
-      <p class="hint">Pick a photo, then click a panel — or drag the photo inside a panel to frame it.</p>
+      <p class="hint">Pick a photo, then click a panel — or drag the photo inside a panel to frame it. Arrow keys nudge the selected panel's photo (Shift = faster).</p>
     </section>
     <section class="control-block">
       <h2>Layout</h2>
@@ -39,20 +40,50 @@
       <label class="slider-row">Zoom
         <input id="zoom" type="range" min="1" max="3" step="0.01" value="1">
       </label>
+      <label class="slider-row">Grade punch
+        <input id="punch" type="range" min="0.4" max="1.8" step="0.02" value="1">
+      </label>
       <div class="button-row">
         <button id="fillAll" type="button">Fill all panels</button>
         <button id="spread" type="button">Spread photos</button>
+        <button id="autoArrange" type="button">Auto-arrange</button>
+        <button id="swapNext" type="button">Swap with next photo</button>
         <button id="resetCrop" type="button">Reset crop</button>
       </div>
     </section>
     <section class="control-block">
       <h2>Look</h2>
       <div id="gradeButtons" class="grade-buttons"></div>
+      <label class="field">Dividers
+        <select id="dividerSelect">
+          <option value="cream">Cream — warm poster white</option>
+          <option value="chrome">Chrome — brushed metal</option>
+          <option value="neon">Neon — glowing tube</option>
+        </select>
+      </label>
+      <label class="field">Caption style
+        <select id="captionStyleSelect">
+          <option value="sunset">Sunset Gradient</option>
+          <option value="chrome">Chrome</option>
+          <option value="neon">Neon Glow</option>
+        </select>
+      </label>
       <label class="field">Caption position
         <select id="captionPos">
           <option value="bottom">Bottom of the cover</option>
           <option value="top">Top of the cover</option>
         </select>
+      </label>
+      <div class="check-row">
+        <label><input id="grainToggle" type="checkbox" checked> Film grain</label>
+        <label><input id="leakToggle" type="checkbox"> Light leak</label>
+        <label><input id="sharpToggle" type="checkbox" checked> Sharp finish</label>
+      </div>
+      <label class="slider-row">Halftone
+        <input id="halftoneRange" type="range" min="0" max="1" step="0.05" value="0.5">
+      </label>
+      <label class="slider-row">Sharpness
+        <input id="sharpRange" type="range" min="0" max="1" step="0.05" value="0.35">
       </label>
     </section>
     <section class="control-block">
@@ -62,6 +93,12 @@
       </label>
       <label class="field">Subtitle
         <input id="subtitleInput" type="text" maxlength="42" value="Vice Cover Studio" autocomplete="off">
+      </label>
+      <label class="slider-row">Outline weight
+        <input id="outlineRange" type="range" min="0.5" max="2" step="0.05" value="1">
+      </label>
+      <label class="slider-row">Subtitle size
+        <input id="subScaleRange" type="range" min="0.8" max="1.6" step="0.05" value="1">
       </label>
     </section>
     <section class="control-block">
