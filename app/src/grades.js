@@ -3,8 +3,8 @@
 // washed over the panel in 'overlay' blending, the sky colours used behind empty panels, the frame
 // colour of the panel dividers, and the colours the caption lettering is filled with. Each grade also
 // names a glow colour (the neon divider style and the Neon Glow lettering burn in it) and a neon fill
-// for lettering that wants to look lit from inside. Three grades ship: the Vice City sunset, a neon
-// night, and a clean daylight look.
+// for lettering that wants to look lit from inside. Four grades ship: the Vice City sunset, a
+// golden-hour film look, a neon night, and a clean daylight look.
 
 export const GRADES = {
   sunset: {
@@ -25,6 +25,26 @@ export const GRADES = {
     band: 'rgba(24, 6, 44, 0.55)',
     glow: '#ff2e88',
     neonFill: ['#fffbe8', '#ffd23e', '#ff5e8a'],
+  },
+  golden: {
+    name: 'Golden Hour',
+    filter: 'saturate(1.24) contrast(1.09) brightness(1.03) sepia(0.16)',
+    // Duotone wash: teal settles into the shadows up top, amber light floods the foot — the
+    // split-tone of a late-afternoon film still.
+    wash: [
+      [0, 'rgba(14, 70, 78, 0.48)'],
+      [0.5, 'rgba(255, 186, 105, 0.08)'],
+      [1, 'rgba(255, 148, 56, 0.46)'],
+    ],
+    sky: ['#173f4d', '#2e6f73', '#79a98e', '#e8b96a', '#ffd98a'],
+    sun: '#ffc46a',
+    silhouette: '#12333d',
+    frame: '#fbeed3',
+    titleFill: ['#fff8e2', '#ffd98a', '#ff9e4f'],
+    subtitle: '#ffedcb',
+    band: 'rgba(24, 26, 10, 0.5)',
+    glow: '#ffb35c',
+    neonFill: ['#fffbe8', '#ffd98a', '#ff9e4f'],
   },
   neon: {
     name: 'Neon Night',

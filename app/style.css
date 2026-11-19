@@ -180,6 +180,7 @@ input[type='text']:focus, select:focus { border-color: var(--cyan); outline: non
 .grade-buttons { display: flex; gap: 8px; }
 .grade-buttons button { flex: 1; padding: 9px 4px; font-family: 'Anton', 'Arial Narrow', sans-serif; letter-spacing: 0.5px; font-size: 12.5px; }
 .grade-buttons button[data-grade='sunset'] { background: linear-gradient(135deg, #7a1e6e, #ff7a3e); }
+.grade-buttons button[data-grade='golden'] { background: linear-gradient(135deg, #2e6f73, #ffb35c); }
 .grade-buttons button[data-grade='neon'] { background: linear-gradient(135deg, #0d1440, #8a1470); }
 .grade-buttons button[data-grade='clean'] { background: linear-gradient(135deg, #274b8f, #8fc3e8); color: #0d1a2e; }
 .grade-buttons button.active { box-shadow: 0 0 0 2px var(--paper), 0 0 14px rgba(255, 255, 255, 0.35); color: #fff; }
