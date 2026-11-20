@@ -1,9 +1,13 @@
-Anton — a SIL Open Font License font, bundled with Vice Cover Studio.
-Copyright 2020 The Anton Project Authors (the AntonFont project on GitHub)
+Copyright 2020 The Anton Project Authors (https://github.com/googlefonts/AntonFont)
+
+Anton is a rework of a traditional advertising sans serif typeface,
+redrawn as a single bold weight for headlines and poster lettering.
+Vice Cover Studio ships the regular weight as app/fonts/anton-regular.ttf
+for its canvas title lettering, under the license below.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
-This license is copied below, and is also available with a FAQ at
-scripts.sil.org/OFL.
+This license is copied below, and is also available with a FAQ at:
+https://openfontlicense.org
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
@@ -83,10 +87,11 @@ not met.
 
 DISCLAIMER
 THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY OF
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
 MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
 OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
 COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-INCLUDING ANY ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE FONT SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE FONT SOFTWARE.
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.

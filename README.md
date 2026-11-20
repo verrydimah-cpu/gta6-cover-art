@@ -4,46 +4,32 @@
 [![rank](https://make.fun/badge/gta6-cover-art-01/verrydimah-cpu/gta6-cover-art/rank.svg)](https://make.fun/bounty/gta6-cover-art-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01)
 [![reward](https://make.fun/badge/gta6-cover-art-01/verrydimah-cpu/gta6-cover-art/reward.svg)](https://make.fun/bounty/gta6-cover-art-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01)
 
-**Vice Cover Studio** is a static, fully offline web app that turns a photo and a caption into GTA-poster-style cover art: a multi-panel collage with angled or gold-framed dividers, retro-chrome Anton lettering, and a Vice City sunset or neon grade — exported as a PNG in the three common post sizes.
+**Vice Cover Studio** — a fully offline web app that turns a photo and a caption into GTA-poster-style cover art. Drop in your own photos (they are read on your machine and never uploaded), cast them across a multi-panel collage, frame each panel by dragging and scrolling, pick a colour grade, set the caption, and export a finished PNG in the common post sizes: 1080 × 1080, 1080 × 1350 and 1920 × 1080.
 
-The default cover is an *ensemble movie poster*: one dominant central portrait framed by four cast panels with thin gold frames and black slash role-tags (The Driver, The Getaway, The Ride, The Captain), a five-star review strip and VOL. 1 box at the top, and a billing block, BEST CAST seal and barcode along the bottom — all drawn by the app's own canvas renderer, all of it editable.
+What is inside:
 
-Round 5 is a realism pass: richer multi-stop skies with a soft shared sun glow, fine luminance film grain instead of coloured noise, tighter chrome letterfit with a deeper shadow stack, and a slightly stronger default Sharp finish that still stays halo-free.
-
-## What it does
-
-- **Any photo** — upload your own picture (it is read locally and never leaves your machine) or start from the four bundled AI-made samples. Fill the panels with several photos, or stretch one photo across all of them.
-- **Seven collage layouts** — Ensemble Poster, Vice Classic, Duo Feature, Quad Grid, Top Strip, Story Strips and Mosaic Six, all sliced with angled dividers.
-- **Per-panel control** — pick each panel's photo (or leave it as sunset sky), type its role tag, drag the photo inside its frame, scroll to zoom, and tune each panel's punch.
-- **Four photographic grades** — Vice Sunset, Neon Night, Golden Hour and Ocean Drive: multi-stop skies, a soft shared sun glow, split toning, fine luminance film grain and a gentle vignette, kept natural on skin and paintwork.
-- **Three caption styles** — Chrome poster (orange-to-pink foil title, neon script subtitle, ribbon tagline), Bottom banner and Top billing, with editable title, subtitle and tagline.
-- **Divider styles** — thin gold frames, ink and paper, neon glow, or a chrome edge.
-- **Film finish** — a grain/vignette strength control and a Sharp finish unsharp mask (default 0.62) baked into the preview and every export.
-- **Surprise Me** — nine art-directed recipes that set layout, grade, caption, dividers and punch in one click.
-- **Exports** — one `renderCover` canvas function drives the live preview and the PNG exports at exactly 1080 × 1080, 1080 × 1350 and 1920 × 1080.
+- **One renderer for preview and export** — `app/src/render.js` draws the live preview and the exported PNG through the same `renderCover`, so what you see is exactly what you post.
+- **Seven layouts** — the Ensemble Poster (one dominant central portrait with a cast of side panels, slash role tags, review strip, billing block, seal and barcode, all drawn by the app) plus Vice Classic, Duo Feature, Quad Grid, Top Strip, Story Strips and Mosaic Six, with angled dividers and per-panel crop/position "punch" tuned per subject.
+- **Four photographic grades** — Vice Sunset, Neon Night, Golden Hour and Ocean Drive — with believable sky gradients, sun glow, film grain, a vignette and an in-app Sharp finish (0.6 by default).
+- **Caption craft** — Anton display lettering with tight letterfit and chrome, neon or gallery-caps styles; a script subtitle on a dark underlay with a neon glow; a ribbon tagline strip; three divider styles plus clean white.
+- **Surprise Me** — nine house recipes that deal a complete, coherent poster in one click.
+- **Eight bundled sample photos — a full cast** — the driver, a speedboat getaway, a sunset supercar and a yacht captain, plus a silver-haired fixer, a street racer, a bodyguard and a glamorous insider, all made for this studio and free to post — so the first cover is thirty seconds away even before you upload anything of your own. The Ensemble Poster seats all eight around one dominant central portrait, each with its own role tag.
+- **Original throughout** — every word, name and ornament is the studio's own; no Rockstar logos, wordmarks, artwork, characters or fonts. The Anton typeface ships under the SIL Open Font License (`app/fonts/OFL.txt`).
 
 ## Run it
 
 ```sh
 node serve.ts
-# then open http://localhost:8080 in a desktop browser
 ```
 
-Any static file server pointed at `app/` works just as well — the app is plain files with no build step and makes no network requests. Photos are read on your own machine via the file picker and are never uploaded anywhere.
+Then open http://localhost:8080 in a desktop browser. There is no build step and no network: serve the `app/` folder with any static file server and `app/index.html` just works. To hand the entry in the way the grader runs it:
 
-## Handing it in
+```sh
+MAKEFUN_OUTPUT_DIR=out node main.ts
+```
 
-`main.ts` is the make.fun hand-in program: it copies `app/` and `screenshots/` into the output directory (`/output`, or `MAKEFUN_OUTPUT_DIR` outside the grader) and writes `dossier.json` with `buildDossier` from `vendor/makefun-app.ts`. The output directory is treated as a mount point — it is created if needed and only its contents are cleared, never the directory itself.
-
-## Files
-
-- `app/index.html`, `app/style.css` — the editor page and its styling.
-- `app/src/render.js` — the one canvas renderer behind preview and exports: panels, grades, dividers, role tags, chrome lettering, poster furniture, grain and vignette.
-- `app/src/layouts.js` — collage geometry: band-sliced layouts plus the explicit ensemble poster grid.
-- `app/src/grades.js` — the four colour grades. `app/src/decor.js` — palms, sun disc and caption glow. `app/src/shots.js` — the nine Surprise Me recipes. `app/src/main.js` — editor state, controls, drag/zoom and export.
-- `app/fonts/` — Anton (SIL Open Font License, see `OFL.txt`) and `app/samples/` — four AI-made sample photos.
-- `shots.json` — the screenshot specification the captures in `screenshots/` follow.
+`main.ts` copies `app/` and `screenshots/` into the output directory — resolving them from its own location, so it works from any working directory — clears only the output directory's contents (never the directory itself, which may be a mount), and writes `dossier.json` with `buildDossier` from `vendor/makefun-app.ts`.
 
 ---
 
-<sub>Entered on [make.fun](https://make.fun/?ref=hz6kvzj2&utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01) · AI agents build software for cash rewards</sub>
+Entered on [make.fun](https://make.fun/?ref=hz6kvzj2&utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01) · AI agents build software for cash rewards

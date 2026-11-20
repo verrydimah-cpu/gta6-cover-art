@@ -3,101 +3,100 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vice Cover Studio — GTA-style poster maker</title>
+<title>Vice Cover Studio — turn a photo into a Vice City poster</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="masthead">
+<header class="topbar">
   <div class="brand">
-    <span class="brand-mark">VCS</span>
-    <div>
+    <div class="brand-badge" aria-hidden="true">VCS</div>
+    <div class="brand-text">
       <h1>Vice Cover Studio</h1>
       <p>Turn a photo into a Vice City poster — panels, chrome lettering, sunset grade, exported as a PNG.</p>
     </div>
   </div>
-  <button id="surprise" class="surprise" type="button">✦ Surprise Me</button>
+  <button id="surprise-btn" type="button" class="surprise">✦ Surprise Me</button>
 </header>
 
-<main class="workspace">
-  <section class="stage-wrap">
-    <div class="stage">
-      <canvas id="preview" width="880" height="880"></canvas>
+<main class="stage-wrap">
+  <section class="stage">
+    <div class="canvas-frame">
+      <canvas id="preview" width="1080" height="1080" aria-label="Live cover preview"></canvas>
     </div>
     <p class="hint">Drag a panel to reposition its photo · scroll over a panel to zoom it · click a cast panel, then a sample, to recast it · every change renders live.</p>
-    <div class="export-bar">
+    <div class="export-row">
       <span class="export-label">Export PNG</span>
-      <button type="button" data-export="1080x1080">Square 1080 × 1080</button>
-      <button type="button" data-export="1080x1350">Portrait 1080 × 1350</button>
-      <button type="button" data-export="1920x1080">Wide 1920 × 1080</button>
+      <button type="button" class="export-btn" data-size="square" data-w="1080" data-h="1080">Square 1080 × 1080</button>
+      <button type="button" class="export-btn" data-size="portrait" data-w="1080" data-h="1350">Portrait 1080 × 1350</button>
+      <button type="button" class="export-btn" data-size="wide" data-w="1920" data-h="1080">Wide 1920 × 1080</button>
     </div>
-    <p id="status" class="status" role="status"></p>
+    <p id="status-line" class="status" role="status">Loading the studio…</p>
   </section>
 
   <aside class="controls">
     <section class="card">
       <h2>1 · Photo</h2>
-      <label class="upload">
-        <input id="upload" type="file" accept="image/*">
-        <span>Upload your photo</span>
-      </label>
-      <div id="samples" class="samples"></div>
-      <label class="row"><span>Fill panels</span>
-        <select id="mode">
-          <option value="spread">Several photos, one per panel</option>
-          <option value="single">One photo across all panels</option>
+      <button id="upload-btn" type="button" class="upload">Upload your photo</button>
+      <input id="upload-input" type="file" accept="image/*" multiple hidden>
+      <div id="sample-row" class="sample-row"></div>
+      <label class="field-row">
+        <span>Fill panels</span>
+        <select id="fill-mode">
+          <option value="multi">Several photos, one per panel</option>
+          <option value="single">One photo in every panel</option>
         </select>
       </label>
     </section>
 
     <section class="card">
       <h2>2 · Collage layout</h2>
-      <div id="layouts" class="chips"></div>
-      <h2 class="sub">Colour grade</h2>
-      <div id="grades" class="chips"></div>
+      <div id="layout-row" class="chip-row"></div>
+      <h3>Colour grade</h3>
+      <div id="grade-row" class="chip-row"></div>
     </section>
 
     <section class="card">
       <h2>3 · Caption</h2>
-      <label class="row"><span>Title</span><input id="title" type="text" maxlength="26"></label>
-      <label class="row"><span>Subtitle</span><input id="subtitle" type="text" maxlength="40"></label>
-      <label class="row"><span>Tagline</span><input id="tagline" type="text" maxlength="48"></label>
-      <label class="row"><span>Style</span>
-        <select id="captionStyle">
-          <option value="poster">Chrome poster</option>
-          <option value="banner">Bottom banner</option>
-          <option value="top">Top billing</option>
-        </select>
+      <label class="field-row">
+        <span>Title</span>
+        <input id="title-input" type="text" maxlength="26" value="VICE CITY">
       </label>
-      <label class="row"><span>Dividers</span>
-        <select id="divider">
-          <option value="gold">Thin gold frames</option>
-          <option value="ink">Ink and paper</option>
-          <option value="neon">Neon glow</option>
-          <option value="chrome">Chrome edge</option>
-        </select>
+      <label class="field-row">
+        <span>Subtitle</span>
+        <input id="subtitle-input" type="text" maxlength="44" value="Neon Hearts, Fast Cars">
+      </label>
+      <label class="field-row">
+        <span>Tagline</span>
+        <input id="tagline-input" type="text" maxlength="52" value="EVERYBODY WANTS A PIECE OF THE SUNSET">
+      </label>
+      <label class="field-row">
+        <span>Style</span>
+        <select id="caption-style"></select>
+      </label>
+      <label class="field-row">
+        <span>Dividers</span>
+        <select id="divider-style"></select>
+      </label>
+      <label class="field-row check-row">
+        <span>Role tags on collages</span>
+        <input id="tags-toggle" type="checkbox" checked>
       </label>
     </section>
 
     <section class="card">
-      <h2>4 · Panels</h2>
-      <div id="panelList" class="panel-list"></div>
-    </section>
-
-    <section class="card">
-      <h2>5 · Film finish</h2>
-      <label class="row"><span>Grain &amp; vignette</span>
-        <input id="grain" type="range" min="0" max="2" step="0.05">
+      <h2>4 · Finish</h2>
+      <label class="field-row">
+        <span>Sharp finish <em id="sharp-value">0.6</em></span>
+        <input id="sharp-range" type="range" min="0" max="1" step="0.1" value="0.6">
       </label>
-      <label class="row"><span>Sharp finish</span>
-        <input id="sharp" type="range" min="0" max="1" step="0.05">
-      </label>
-      <p class="fine">Sharp finish is a gentle unsharp mask baked into the preview and every export — detail without halos.</p>
+      <p class="fine">Film grain and a vignette are baked into every render, the way a printed poster holds them.</p>
+      <button id="reset-framing" type="button" class="ghost">Reset selected panel framing</button>
     </section>
   </aside>
 </main>
 
 <footer class="colophon">
-  <p>Vice Cover Studio runs fully offline. Your photos never leave this machine. Lettering set in Anton (SIL Open Font License).</p>
+  <p>Fully offline: your photos are read on this machine and never uploaded. Lettering is set in Anton, an open-license display face shipped with the app. Every cover is an original design — make it yours and post it anywhere.</p>
 </footer>
 
 <script type="module" src="src/main.js"></script>

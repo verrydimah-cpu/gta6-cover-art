@@ -1,158 +1,137 @@
-// layouts.js — collage geometry for VICE COVER STUDIO.
-// A layout is a stack of horizontal bands. Each band is split into
-// segments by cut fractions, and every vertical edge in the band is
-// slanted by a small offset so neighbouring panels meet along angled
-// dividers, the way printed poster collages are sliced. Because the
-// bands share straight horizontal seams, the polygons always tile the
-// cover exactly: no gaps, no overlaps, whatever the export size is.
+// layouts.js — the collage geometries of Vice Cover Studio.
+//
+// A panel is a rectangle in unit space (0..1 across the whole cover) plus
+// the editorial decisions that make it read as poster art: a role tag for
+// the little black slash label, the sample photo the panel is cast with by
+// default, a punch (focal point and zoom) that frames faces and cars the
+// way a poster artist would, and a slant used by the angled dividers.
+//
+// Sample indices follow the shipped sample order:
+//   0 neon woman · 1 speedboat · 2 sunset car · 3 yacht man
+//   4 silver fixer · 5 street racer · 6 bodyguard · 7 glamour insider
+// The last four portraits were generated for this studio's expanded cast,
+// in the same photographic Vice light as the original four.
+
+export const ROLE_TAGS = [
+  'THE DRIVER',
+  'THE GETAWAY',
+  'THE CAPTAIN',
+  'THE RIDE',
+  'THE FIXER',
+  'THE RACER',
+  'THE MUSCLE',
+  'THE INSIDER',
+  'THE CITY',
+];
+
+function panel(x, y, w, h, tag, sample, punch, slant = 0) {
+  return { x, y, w, h, tag, sample, punch, slant };
+}
+
+// The punch values are focal points (fx, fy in 0..1 of the photo) and a
+// zoom past the plain cover-fit. They are tuned gently — enough to give a
+// panel poster energy, never enough to bend a face or a car out of shape.
+const PUNCH = {
+  portrait: { fx: 0.5, fy: 0.34, zoom: 1.04 },
+  face: { fx: 0.52, fy: 0.35, zoom: 1.06 },
+  car: { fx: 0.44, fy: 0.58, zoom: 1.06 },
+  boat: { fx: 0.5, fy: 0.52, zoom: 1.05 },
+  wide: { fx: 0.5, fy: 0.46, zoom: 1.03 },
+};
 
 export const LAYOUTS = [
   {
+    id: 'ensemble-poster',
+    name: 'Ensemble Poster',
+    ensemble: true,
+    // The full cast around one dominant central portrait: four panels up
+    // each side — the getaway, the ride, the fixer and the racer on the
+    // left; the captain, the muscle, the insider and a gradient city
+    // panel on the right — the crowded movie-poster arrangement.
+    panels: [
+      panel(0.035, 0.088, 0.235, 0.1245, 'THE GETAWAY', 1, PUNCH.boat),
+      panel(0.035, 0.221, 0.235, 0.1245, 'THE RIDE', 2, PUNCH.car),
+      panel(0.035, 0.354, 0.235, 0.1245, 'THE FIXER', 4, PUNCH.face),
+      panel(0.035, 0.487, 0.235, 0.1245, 'THE RACER', 5, PUNCH.face),
+      panel(0.29, 0.072, 0.42, 0.54, 'THE DRIVER', 0, PUNCH.portrait),
+      panel(0.73, 0.088, 0.235, 0.1245, 'THE CAPTAIN', 3, PUNCH.face),
+      panel(0.73, 0.221, 0.235, 0.1245, 'THE MUSCLE', 6, PUNCH.face),
+      panel(0.73, 0.354, 0.235, 0.1245, 'THE INSIDER', 7, PUNCH.face),
+      panel(0.73, 0.487, 0.235, 0.1245, 'THE CITY', -1, PUNCH.wide),
+    ],
+  },
+  {
     id: 'vice-classic',
-    label: 'Vice Classic',
-    blurb: 'One hero portrait, a wide scene and a three-panel base.',
-    bands: [
-      { y: [0, 0.52], cuts: [0, 0.56, 1], slant: -0.055 },
-      { y: [0.52, 1], cuts: [0, 0.34, 0.67, 1], slant: 0.045 },
+    name: 'Vice Classic',
+    ensemble: false,
+    panels: [
+      panel(0, 0, 0.52, 0.55, 'THE DRIVER', 0, PUNCH.portrait, 0.06),
+      panel(0.52, 0, 0.48, 0.55, 'THE GETAWAY', 1, PUNCH.boat, 0.06),
+      panel(0, 0.55, 0.3, 0.45, 'THE RIDE', 2, PUNCH.car),
+      panel(0.3, 0.55, 0.34, 0.45, 'THE FIXER', 4, PUNCH.face),
+      panel(0.64, 0.55, 0.36, 0.45, 'THE CAPTAIN', 3, PUNCH.face),
     ],
   },
   {
     id: 'duo-feature',
-    label: 'Duo Feature',
-    blurb: 'A tall lead panel over a full-width closing scene.',
-    bands: [
-      { y: [0, 0.64], cuts: [0, 0.6, 1], slant: -0.05 },
-      { y: [0.64, 1], cuts: [0, 1], slant: 0 },
+    name: 'Duo Feature',
+    ensemble: false,
+    panels: [
+      panel(0, 0, 0.52, 1, 'THE DRIVER', 0, PUNCH.portrait, 0.05),
+      panel(0.52, 0, 0.48, 1, 'THE GETAWAY', 1, PUNCH.boat, 0.05),
     ],
   },
   {
     id: 'quad-grid',
-    label: 'Quad Grid',
-    blurb: 'Four equal frames, dividers leaning against each other.',
-    bands: [
-      { y: [0, 0.5], cuts: [0, 0.5, 1], slant: 0.04 },
-      { y: [0.5, 1], cuts: [0, 0.5, 1], slant: -0.04 },
+    name: 'Quad Grid',
+    ensemble: false,
+    panels: [
+      panel(0, 0, 0.5, 0.5, 'THE DRIVER', 0, PUNCH.face),
+      panel(0.5, 0, 0.5, 0.5, 'THE GETAWAY', 1, PUNCH.boat),
+      panel(0, 0.5, 0.5, 0.5, 'THE RIDE', 2, PUNCH.car),
+      panel(0.5, 0.5, 0.5, 0.5, 'THE CAPTAIN', 3, PUNCH.face),
     ],
   },
   {
     id: 'top-strip',
-    label: 'Top Strip',
-    blurb: 'A three-frame strip above two large story panels.',
-    bands: [
-      { y: [0, 0.36], cuts: [0, 0.33, 0.66, 1], slant: 0.03 },
-      { y: [0.36, 1], cuts: [0, 0.58, 1], slant: -0.065 },
+    name: 'Top Strip',
+    ensemble: false,
+    panels: [
+      panel(0, 0, 1, 0.46, 'THE CITY', 2, PUNCH.wide),
+      panel(0, 0.46, 0.34, 0.54, 'THE DRIVER', 0, PUNCH.portrait),
+      panel(0.34, 0.46, 0.33, 0.54, 'THE RACER', 5, PUNCH.face),
+      panel(0.67, 0.46, 0.33, 0.54, 'THE INSIDER', 7, PUNCH.face),
     ],
   },
   {
     id: 'story-strips',
-    label: 'Story Strips',
-    blurb: 'Four leaning vertical strips, like frames from a film reel.',
-    bands: [
-      { y: [0, 1], cuts: [0, 0.25, 0.5, 0.75, 1], slant: 0.055 },
+    name: 'Story Strips',
+    ensemble: false,
+    panels: [
+      panel(0, 0, 0.34, 1, 'THE DRIVER', 0, PUNCH.portrait, 0.04),
+      panel(0.34, 0, 0.33, 1, 'THE RIDE', 2, PUNCH.car, 0.04),
+      panel(0.67, 0, 0.33, 1, 'THE INSIDER', 7, PUNCH.face, 0.04),
     ],
   },
   {
     id: 'mosaic-six',
-    label: 'Mosaic Six',
-    blurb: 'Six matched frames for a crowded, busy poster wall.',
-    bands: [
-      { y: [0, 0.5], cuts: [0, 0.33, 0.66, 1], slant: 0.05 },
-      { y: [0.5, 1], cuts: [0, 0.33, 0.66, 1], slant: -0.05 },
-    ],
-  },
-  {
-    id: 'ensemble',
-    label: 'Ensemble Poster',
-    blurb: 'One dominant central portrait framed by four cast panels.',
-    poster: true,
-    // Explicit polygons: [top-left, top-right, centre hero,
-    // bottom-left, bottom-right]. The hero is drawn after its
-    // neighbours so its frame sits proudly on top of theirs.
+    name: 'Mosaic Six',
+    ensemble: false,
     panels: [
-      [[0.03, 0.09], [0.315, 0.09], [0.315, 0.42], [0.03, 0.42]],
-      [[0.685, 0.09], [0.97, 0.09], [0.97, 0.42], [0.685, 0.42]],
-      [[0.33, 0.07], [0.67, 0.07], [0.67, 0.7], [0.33, 0.7]],
-      [[0.03, 0.445], [0.315, 0.445], [0.315, 0.7], [0.03, 0.7]],
-      [[0.685, 0.445], [0.97, 0.445], [0.97, 0.7], [0.685, 0.7]],
+      panel(0, 0, 0.34, 0.5, 'THE DRIVER', 0, PUNCH.face),
+      panel(0.34, 0, 0.33, 0.5, 'THE GETAWAY', 1, PUNCH.boat),
+      panel(0.67, 0, 0.33, 0.5, 'THE RIDE', 2, PUNCH.car),
+      panel(0, 0.5, 0.34, 0.5, 'THE CAPTAIN', 3, PUNCH.face),
+      panel(0.34, 0.5, 0.33, 0.5, 'THE FIXER', 4, PUNCH.face),
+      panel(0.67, 0.5, 0.33, 0.5, 'THE MUSCLE', 6, PUNCH.face),
     ],
-    photoMap: [1, 3, 0, 2, -1],
-    labels: ['THE GETAWAY', 'THE CAPTAIN', 'THE DRIVER', 'THE RIDE', 'THE CITY'],
   },
 ];
 
 export function layoutById(id) {
-  return LAYOUTS.find((entry) => entry.id === id) || LAYOUTS[0];
+  return LAYOUTS.find((layout) => layout.id === id) || LAYOUTS[0];
 }
 
-// Expand a layout into pixel polygons for a W x H cover. Each panel
-// carries its centre (handy for labels and decor placement) and a
-// bounding box (handy for cover-fitting a photo into the panel).
-export function layoutPanels(layout, W, H) {
-  const panels = [];
-  if (layout.panels) {
-    for (const raw of layout.panels) {
-      const points = raw.map(([fx, fy]) => [fx * W, fy * H]);
-      const xs = points.map((p) => p[0]);
-      const ys = points.map((p) => p[1]);
-      panels.push({
-        index: panels.length,
-        points,
-        cx: xs.reduce((a, b) => a + b, 0) / points.length,
-        cy: ys.reduce((a, b) => a + b, 0) / points.length,
-        box: {
-          x: Math.min(...xs),
-          y: Math.min(...ys),
-          w: Math.max(...xs) - Math.min(...xs),
-          h: Math.max(...ys) - Math.min(...ys),
-        },
-      });
-    }
-    return panels;
-  }
-  for (const band of layout.bands) {
-    const [yTop, yBottom] = band.y;
-    for (let i = 0; i < band.cuts.length - 1; i += 1) {
-      const xLeft = band.cuts[i];
-      const xRight = band.cuts[i + 1];
-      const points = [
-        [xLeft * W, yTop * H],
-        [xRight * W, yTop * H],
-        [(xRight + band.slant) * W, yBottom * H],
-        [(xLeft + band.slant) * W, yBottom * H],
-      ];
-      const xs = points.map((p) => p[0]);
-      const ys = points.map((p) => p[1]);
-      panels.push({
-        index: panels.length,
-        points,
-        cx: xs.reduce((a, b) => a + b, 0) / 4,
-        cy: ys.reduce((a, b) => a + b, 0) / 4,
-        box: {
-          x: Math.min(...xs),
-          y: Math.min(...ys),
-          w: Math.max(...xs) - Math.min(...xs),
-          h: Math.max(...ys) - Math.min(...ys),
-        },
-      });
-    }
-  }
-  return panels;
-}
-
-// Point-in-polygon test used when the user drags on the preview: the
-// panel under the pointer is the one that receives the drag.
-export function panelAtPoint(panels, x, y) {
-  for (let i = panels.length - 1; i >= 0; i -= 1) {
-    const pts = panels[i].points;
-    let inside = false;
-    for (let a = 0, b = pts.length - 1; a < pts.length; b = a, a += 1) {
-      const [xa, ya] = pts[a];
-      const [xb, yb] = pts[b];
-      if ((ya > y) !== (yb > y) && x < ((xb - xa) * (y - ya)) / (yb - ya) + xa) {
-        inside = !inside;
-      }
-    }
-    if (inside) return i;
-  }
-  return -1;
-}
+// The ensemble poster is the default: it is the arrangement the cover
+// screenshot leads with, so a first-time visitor lands on the full poster.
+export const DEFAULT_LAYOUT_ID = 'ensemble-poster';

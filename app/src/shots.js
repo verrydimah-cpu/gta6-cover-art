@@ -1,67 +1,66 @@
-// shots.js — the nine "Surprise Me" shot recipes of VICE COVER STUDIO.
-// Each recipe is one complete, art-directed cover: a layout, a grade,
-// a caption style, a divider treatment and a mood line for the title.
-// Applying one sets every control at once, so a single click takes a
-// photo from raw to a finished, balanced poster.
+// shots.js — screenshot automation hooks for Vice Cover Studio.
+//
+// The editor works entirely by hand, but the maker's screenshot session
+// needs to drive it precisely: load the samples, apply a recipe, render an
+// export and hold that export full-screen while the camera fires. This
+// module installs a small `window.__vcs` handle for that session. It only
+// ever calls the same functions the buttons call, so a screenshot taken
+// through these hooks is a screenshot of the real app at work.
 
-export const RECIPES = [
-  {
-    name: 'Sunset Boulevard',
-    layout: 'vice-classic', grade: 'vice-sunset', caption: 'poster',
-    divider: 'gold', mode: 'spread', punch: 1.05, sharp: 0.62,
-    title: 'VICE CITY', subtitle: 'Sunset Boulevard',
-  },
-  {
-    name: 'Neon Confession',
-    layout: 'duo-feature', grade: 'neon-night', caption: 'top',
-    divider: 'neon', mode: 'spread', punch: 1.15, sharp: 0.65,
-    title: 'NEON NIGHTS', subtitle: 'Ocean Drive After Dark',
-  },
-  {
-    name: 'Golden Getaway',
-    layout: 'top-strip', grade: 'golden-hour', caption: 'poster',
-    divider: 'chrome', mode: 'spread', punch: 0.95, sharp: 0.55,
-    title: 'GOLDEN HOUR', subtitle: 'One Last Ride West',
-  },
-  {
-    name: 'Pastel Morning',
-    layout: 'quad-grid', grade: 'ocean-drive', caption: 'banner',
-    divider: 'chrome', mode: 'spread', punch: 1.0, sharp: 0.6,
-    title: 'OCEAN DRIVE', subtitle: 'Pastel Morning Edition',
-  },
-  {
-    name: 'Harbour Run',
-    layout: 'vice-classic', grade: 'ocean-drive', caption: 'poster',
-    divider: 'ink', mode: 'spread', punch: 1.1, sharp: 0.7,
-    title: 'HARBOUR RUN', subtitle: 'Fast Boats, Slow Law',
-  },
-  {
-    name: 'Strip Reel',
-    layout: 'story-strips', grade: 'vice-sunset', caption: 'top',
-    divider: 'neon', mode: 'single', punch: 1.1, sharp: 0.6,
-    title: 'VICE CITY', subtitle: 'Four Frames Of Trouble',
-  },
-  {
-    name: 'Midnight Mosaic',
-    layout: 'mosaic-six', grade: 'neon-night', caption: 'banner',
-    divider: 'neon', mode: 'spread', punch: 1.2, sharp: 0.65,
-    title: 'MIDNIGHT CITY', subtitle: 'Every Corner Has A Story',
-  },
-  {
-    name: 'Amber Classic',
-    layout: 'duo-feature', grade: 'golden-hour', caption: 'banner',
-    divider: 'ink', mode: 'single', punch: 1.0, sharp: 0.5,
-    title: 'VICE CITY', subtitle: 'The Amber Classic',
-  },
-  {
-    name: 'Grand Collage',
-    layout: 'mosaic-six', grade: 'vice-sunset', caption: 'poster',
-    divider: 'chrome', mode: 'spread', punch: 1.08, sharp: 0.62,
-    title: 'GRAND VICE', subtitle: 'The Whole City In One Frame',
-  },
-];
-
-export function recipeAt(index) {
-  const n = RECIPES.length;
-  return RECIPES[((index % n) + n) % n];
+export function installShotsHooks(api) {
+  const hooks = {
+    // Resolves once samples are loaded and the first preview is drawn.
+    ready: api.ready,
+    // The live editor state, for the session log.
+    state() {
+      return api.getState();
+    },
+    // Apply any patch the controls understand: layout, grade, captions,
+    // divider style, caption style, fill mode, sharpness.
+    apply(patch) {
+      api.applyPatch(patch);
+      return api.getState();
+    },
+    // Run one of the Surprise Me recipes by number (1..9).
+    surprise(n) {
+      api.applyRecipe(n);
+      return api.getState();
+    },
+    // Render a real export at an exact size and hand back its PNG bytes
+    // as a data URL, exactly as the Export buttons produce them.
+    exportPNG(w, h) {
+      return api.exportDataURL(w, h);
+    },
+    // Hold an exported cover full-screen (the app's own PNG, scaled to
+    // fit) so it can be photographed as the cover screenshot. The veil is
+    // a plain flex layer styled in style.css; the image in it is the
+    // untouched export, never composited or edited.
+    showExport(w, h) {
+      const url = api.exportDataURL(w, h);
+      let veil = document.getElementById('vcs-export-veil');
+      if (!veil) {
+        veil = document.createElement('div');
+        veil.id = 'vcs-export-veil';
+        const img = document.createElement('img');
+        img.id = 'vcs-export-img';
+        img.alt = 'Exported Vice Cover Studio cover';
+        veil.appendChild(img);
+        document.body.appendChild(veil);
+      }
+      veil.querySelector('img').src = url;
+      veil.style.display = 'flex';
+      return url.slice(0, 32);
+    },
+    hideExport() {
+      const veil = document.getElementById('vcs-export-veil');
+      if (veil) veil.style.display = 'none';
+    },
+    // The status line text, so the session can prove an export happened.
+    status() {
+      const el = document.getElementById('status-line');
+      return el ? el.textContent : '';
+    },
+  };
+  window.__vcs = hooks;
+  return hooks;
 }

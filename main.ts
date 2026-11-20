@@ -1,27 +1,31 @@
-// main.ts — hand-in program for VICE COVER STUDIO (gta6-cover-art-01).
-// Copies app/ and screenshots/ into the output directory and writes
-// dossier.json with the kit's buildDossier, byte for byte as the
-// grader will rebuild it. Runs on Node 22, standard library only.
+// main.ts — hands the Vice Cover Studio entry to the grader.
 //
-// Mount fix: on the grader the output directory is a mount point, so
-// it must never be removed itself. We create it if needed, then clear
-// only its contents, entry by entry, before copying fresh files in.
+// Round 6 fix: the app and screenshots are resolved from this file's own
+// location, never from the process working directory. Round 5 copied from
+// bare relative paths ('app', 'screenshots'), which only worked when the
+// caller's cwd happened to be the repository root; the grader sets no
+// working directory, so those copies found nothing. Every path below is
+// anchored at `root`, the directory this file lives in.
+//
+// The output directory is treated as a mount: it is created if missing
+// and then emptied entry by entry, but never removed itself — removing a
+// mount point fails on the grader with "Device or resource busy".
 
 import { cpSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-app.ts';
 
-const out = process.env.MAKEFUN_OUTPUT_DIR || '/output';
-// Round 5 note: the clearing below is deliberately entry-by-entry —
-// removing `out` itself fails on the grader's mount with EBUSY.
+const root = dirname(fileURLToPath(import.meta.url));
 
+const out = process.env.MAKEFUN_OUTPUT_DIR || '/output';
 mkdirSync(out, { recursive: true });
 for (const entry of readdirSync(out)) {
   rmSync(join(out, entry), { recursive: true, force: true });
 }
 
-cpSync('app', join(out, 'app'), { recursive: true });
-cpSync('screenshots', join(out, 'screenshots'), { recursive: true });
+cpSync(join(root, 'app'), join(out, 'app'), { recursive: true });
+cpSync(join(root, 'screenshots'), join(out, 'screenshots'), { recursive: true });
 
 const dossier = buildDossier(out, {
   text_max_bytes: 163840,
@@ -29,5 +33,8 @@ const dossier = buildDossier(out, {
   app_max_files: 993,
   app_max_bytes: 50331648,
 });
-
 writeFileSync(join(out, 'dossier.json'), dossier);
+
+// One line for the maker's own runs, so a hand-off can be checked at a
+// glance; the grader ignores stdout entirely.
+console.log(`vice-cover-studio: dossier written to ${join(out, 'dossier.json')}`);
