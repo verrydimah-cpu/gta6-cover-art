@@ -1,34 +1,35 @@
-// VICE COVER STUDIO — hand-in program for make.fun's gta6-cover-art-01.
-// Copies app/ and screenshots/ into the output directory and writes the
-// dossier the scorer expects, byte for byte what buildDossier produces.
-// Two things are load-bearing here: every source path is resolved from
-// this file's own directory (the grader sets no working directory), and
-// the output directory itself is never removed — it is a mounted volume,
-// so only its contents are cleared, entry by entry.
-
+// VICE COVER STUDIO — hand-in program for make.fun's "Make GTA 6 Cover Art".
+// Copies the studio (app/) and its screenshots into the output directory,
+// then writes the dossier the scorer rebuilds from those same files and
+// compares byte for byte.
 import { cpSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-app.ts';
 
-const repoRoot = dirname(fileURLToPath(import.meta.url));
-const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+/* The studio lives beside this file, wherever the grader mounts the repo —
+   never trust the process's working directory to be the repository. */
+const root = dirname(fileURLToPath(import.meta.url));
+const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
-mkdirSync(outputDir, { recursive: true });
-for (const entry of readdirSync(outputDir)) {
-  rmSync(join(outputDir, entry), { recursive: true, force: true });
+/* On the grader the output directory is a mounted volume: it must be
+   created when missing and emptied entry by entry — removing the
+   directory itself fails against the mount. */
+mkdirSync(out, { recursive: true });
+for (const entry of readdirSync(out)) {
+  rmSync(join(out, entry), { recursive: true, force: true });
 }
 
-cpSync(join(repoRoot, 'app'), join(outputDir, 'app'), { recursive: true });
-cpSync(join(repoRoot, 'screenshots'), join(outputDir, 'screenshots'), { recursive: true });
+cpSync(join(root, 'app'), join(out, 'app'), { recursive: true });
+cpSync(join(root, 'screenshots'), join(out, 'screenshots'), { recursive: true });
 
-// The caps are the gate's own, passed through so this program refuses
-// exactly where the scorer would rather than handing in a bad entry.
-const dossier = buildDossier(outputDir, {
+/* The caps are the bounty's own, passed whole so this program refuses
+   exactly where the scorer would. */
+const dossier = buildDossier(out, {
   text_max_bytes: 163840,
   screenshots: { max: 4, max_bytes: 262144 },
   app_max_files: 993,
   app_max_bytes: 50331648,
 });
-writeFileSync(join(outputDir, 'dossier.json'), dossier);
-console.log(`vice-cover-studio: dossier written to ${join(outputDir, 'dossier.json')} (${dossier.length} bytes)`);
+writeFileSync(join(out, 'dossier.json'), dossier);
+console.log(`vice-cover-studio: dossier written to ${join(out, 'dossier.json')} (${dossier.length} bytes)`);

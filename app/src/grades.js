@@ -1,111 +1,115 @@
-// grades.js — the colour grades and the film finish. A grade is one pass
-// over the pixels (temperature, contrast, saturation, shadow and highlight
-// tints) with an ordered Bayer dither folded in so long sunset gradients
-// never band; the finish then sharpens, vignettes and lays a fine
-// luminance grain over the art before any lettering is drawn.
+'use strict';
+/* VICE COVER STUDIO — colour grades and the film finish.
+   One deterministic pass over the finished cover: unsharp, the grade's
+   colour science, a fine luminance grain and a gentle vignette. Same
+   numbers in, same pixels out — the preview and the export never drift. */
+window.VCS = window.VCS || {};
 
-export const GRADES = [
-  { id: 'vice-sunset', name: 'Vice Sunset', temp: 14, sat: 1.18, con: 1.06, shadow: [38, 10, 44], highlight: [255, 176, 120] },
-  { id: 'neon-nights', name: 'Neon Nights', temp: -6, sat: 1.28, con: 1.10, shadow: [6, 34, 44], highlight: [255, 140, 210] },
-  { id: 'ocean-drive', name: 'Ocean Drive', temp: 2, sat: 1.12, con: 1.03, shadow: [10, 40, 52], highlight: [190, 245, 255] },
-  { id: 'golden-hour', name: 'Golden Hour', temp: 24, sat: 1.10, con: 1.02, shadow: [44, 22, 10], highlight: [255, 205, 130] },
-];
+VCS.GRADES = {
+  vice:  { label: 'Vice Sunset',  contrast: 1.07, saturation: 1.16, warmth: 9,  shadowTint: [26, 8, 34],  highTint: [255, 176, 92] },
+  ocean: { label: 'Ocean Drive',  contrast: 1.05, saturation: 1.10, warmth: -4, shadowTint: [6, 22, 38],  highTint: [168, 226, 255] },
+  neon:  { label: 'Neon Night',   contrast: 1.11, saturation: 1.22, warmth: 2,  shadowTint: [18, 4, 40],  highTint: [255, 110, 199] },
+  gold:  { label: 'Golden Hour',  contrast: 1.04, saturation: 1.08, warmth: 14, shadowTint: [30, 16, 8],  highTint: [255, 205, 120] },
+};
 
-export const gradeById = (id) => GRADES.find((g) => g.id === id) || GRADES[0];
+/* A small deterministic hash so the grain is identical on every run. */
+function grainHash(x, y) {
+  let h = (x * 374761393 + y * 668265263) ^ 0x5bf03635;
+  h = (h ^ (h >> 13)) * 1274126177;
+  return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+}
 
-// The finish the studio opens with: a confident Sharp and a whisper of
-// grain. The editor's sliders write straight into these two numbers.
-export const DEFAULT_FINISH = { sharp: 0.62, grain: 0.16 };
-
-const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 const clamp255 = (v) => (v < 0 ? 0 : v > 255 ? 255 : v);
 
-// One pass: contrast around mid-grey, saturation against luma, a warm or
-// cool temperature shift, and the grade's tints weighted by how deep a
-// pixel sits in shadow or highlight. The dither offset is added last, a
-// fraction of a step, purely to break up banding in smooth skies.
-export function applyColourGrade(data, w, h, grade) {
-  const { temp, sat, con, shadow, highlight } = grade;
-  const d = data.data;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
-      let r = d[i], g = d[i + 1], b = d[i + 2];
-      r = (r - 128) * con + 128; g = (g - 128) * con + 128; b = (b - 128) * con + 128;
-      const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      r = luma + (r - luma) * sat; g = luma + (g - luma) * sat; b = luma + (b - luma) * sat;
-      r += temp; b -= temp * 0.8;
-      const sh = Math.max(0, 1 - luma / 160) * 0.16;
-      const hi = Math.max(0, (luma - 170) / 85) * 0.12;
-      r += (shadow[0] - r) * sh + (highlight[0] - r) * hi;
-      g += (shadow[1] - g) * sh + (highlight[1] - g) * hi;
-      b += (shadow[2] - b) * sh + (highlight[2] - b) * hi;
-      const dit = (BAYER4[(x & 3) | ((y & 3) << 2)] / 16 - 0.5) * 1.6;
-      d[i] = clamp255(r + dit); d[i + 1] = clamp255(g + dit); d[i + 2] = clamp255(b + dit);
-    }
-  }
-}
+/* The finish: canvas in, finished canvas out (in place).
+   opts: { grade, sharp (0..1.2), grain (0..0.4) } */
+VCS.applyFinish = function (canvas, opts) {
+  const w = canvas.width, h = canvas.height;
+  const ctx = canvas.getContext('2d');
+  const g = VCS.GRADES[opts.grade] || VCS.GRADES.vice;
 
-// A true 3×3 unsharp convolution: each pixel is pushed away from the mean
-// of its neighbours by the Sharp amount, which is what crispens print.
-export function sharpenPixels(data, w, h, amount) {
-  if (amount <= 0.01) return;
-  const src = new Uint8ClampedArray(data.data);
-  const d = data.data;
-  const a = amount;
+  /* A blurred twin for the unsharp mask. */
+  const blurC = document.createElement('canvas');
+  blurC.width = w; blurC.height = h;
+  const bctx = blurC.getContext('2d');
+  bctx.filter = 'blur(3px)';
+  bctx.drawImage(canvas, 0, 0);
+  bctx.filter = 'none';
+
+  const src = ctx.getImageData(0, 0, w, h);
+  const blur = bctx.getImageData(0, 0, w, h);
+  const d = src.data, b = blur.data;
+  const sharpK = (opts.sharp || 0) * 0.9;
+  const grainAmt = (opts.grain || 0) * 255;
+  const con = g.contrast, sat = g.saturation, warm = g.warmth;
+  const sT = g.shadowTint, hT = g.highTint;
+  const cx = w / 2, cy = h / 2;
+  const invR2 = 1 / (cx * cx + cy * cy);
+
   for (let y = 0; y < h; y++) {
+    const dy = y - cy;
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
-      const xm = x > 0 ? -4 : 0, xp = x < w - 1 ? 4 : 0;
-      const ym = y > 0 ? -w * 4 : 0, yp = y < h - 1 ? w * 4 : 0;
-      for (let c = 0; c < 3; c++) {
-        const centre = src[i + c];
-        const cross = src[i + c + xm] + src[i + c + xp] + src[i + c + ym] + src[i + c + yp];
-        d[i + c] = clamp255(centre + a * (4 * centre - cross) * 0.25);
+      /* unsharp */
+      let r = d[i] + (d[i] - b[i]) * sharpK;
+      let gg = d[i + 1] + (d[i + 1] - b[i + 1]) * sharpK;
+      let bb = d[i + 2] + (d[i + 2] - b[i + 2]) * sharpK;
+      /* contrast around mid grey */
+      r = (r - 128) * con + 128;
+      gg = (gg - 128) * con + 128;
+      bb = (bb - 128) * con + 128;
+      /* saturation around luminance */
+      const lum = 0.2126 * r + 0.7152 * gg + 0.0722 * bb;
+      r = lum + (r - lum) * sat;
+      gg = lum + (gg - lum) * sat;
+      bb = lum + (bb - lum) * sat;
+      /* the grade's two-tint wash: shadows lean one way, highlights the other */
+      const lt = lum / 255;
+      const sw = (1 - lt) * 0.16, hw = lt * 0.12;
+      r += (sT[0] - r) * sw + (hT[0] - r) * hw + warm;
+      gg += (sT[1] - gg) * sw + (hT[1] - gg) * hw;
+      bb += (sT[2] - bb) * sw + (hT[2] - bb) * hw - warm * 0.6;
+      /* fine luminance grain, shy in the mid-tones' extremes */
+      if (grainAmt > 0) {
+        const n = (grainHash(x, y) - 0.5) * 2 * grainAmt * (0.35 + 0.65 * (1 - Math.abs(lt - 0.5) * 2));
+        r += n; gg += n; bb += n;
       }
+      /* vignette: nothing until 0.42 of the corner radius, then a soft fall */
+      const dx = x - cx;
+      const d2 = (dx * dx + dy * dy) * invR2;
+      if (d2 > 0.1764) {
+        let t = (d2 - 0.1764) / (1.21 - 0.1764);
+        if (t > 1) t = 1;
+        const f = 1 - 0.33 * t * t * (3 - 2 * t);
+        r *= f; gg *= f; bb *= f;
+      }
+      d[i] = clamp255(r); d[i + 1] = clamp255(gg); d[i + 2] = clamp255(bb);
     }
   }
-}
+  ctx.putImageData(src, 0, 0);
+};
 
-// A small tile of grayscale noise, generated once and reused as a pattern;
-// drawn with 'overlay' it lightens and darkens by luminance only.
-let grainTile = null;
-export function makeGrainTile(size = 256) {
-  if (grainTile) return grainTile;
+/* A panel's private punch trim: contrast and saturation by its factor,
+   applied to a small offscreen before the panel is placed. */
+VCS.punchPanel = function (img, w, h, punch) {
   const c = document.createElement('canvas');
-  c.width = size; c.height = size;
+  c.width = Math.max(2, Math.round(w)); c.height = Math.max(2, Math.round(h));
   const ctx = c.getContext('2d');
-  const img = ctx.createImageData(size, size);
-  let seed = 987654321;
-  for (let i = 0; i < img.data.length; i += 4) {
-    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-    const v = 108 + (seed % 40);
-    img.data[i] = v; img.data[i + 1] = v; img.data[i + 2] = v; img.data[i + 3] = 255;
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  if (punch && Math.abs(punch - 1) > 0.001) {
+    const data = ctx.getImageData(0, 0, c.width, c.height);
+    const d = data.data;
+    const sat = 0.9 + punch * 0.1 + (punch - 1) * 0.8;
+    for (let i = 0; i < d.length; i += 4) {
+      let r = (d[i] - 128) * punch + 128;
+      let gg = (d[i + 1] - 128) * punch + 128;
+      let bb = (d[i + 2] - 128) * punch + 128;
+      const lum = 0.2126 * r + 0.7152 * gg + 0.0722 * bb;
+      d[i] = clamp255(lum + (r - lum) * sat);
+      d[i + 1] = clamp255(lum + (gg - lum) * sat);
+      d[i + 2] = clamp255(lum + (bb - lum) * sat);
+    }
+    ctx.putImageData(data, 0, 0);
   }
-  ctx.putImageData(img, 0, 0);
-  grainTile = c;
   return c;
-}
-
-// The finish, in order: grade, sharpen, a gentle vignette whose falloff
-// only begins past 0.42 of the radius, and the fine grain at low alpha.
-export function applyFinish(ctx, w, h, grade, finish) {
-  const img = ctx.getImageData(0, 0, w, h);
-  applyColourGrade(img, w, h, grade);
-  sharpenPixels(img, w, h, finish.sharp * 0.9);
-  ctx.putImageData(img, 0, 0);
-  const r = Math.hypot(w, h) / 2;
-  const vig = ctx.createRadialGradient(w / 2, h / 2, r * 0.42, w / 2, h / 2, r);
-  vig.addColorStop(0, 'rgba(12,2,10,0)');
-  vig.addColorStop(1, 'rgba(12,2,10,0.40)');
-  ctx.fillStyle = vig;
-  ctx.fillRect(0, 0, w, h);
-  if (finish.grain > 0.005) {
-    ctx.save();
-    ctx.globalAlpha = finish.grain;
-    ctx.globalCompositeOperation = 'overlay';
-    ctx.fillStyle = ctx.createPattern(makeGrainTile(), 'repeat');
-    ctx.fillRect(0, 0, w, h);
-    ctx.restore();
-  }
-}
+};

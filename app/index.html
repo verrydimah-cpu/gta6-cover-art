@@ -3,74 +3,123 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="VICE COVER STUDIO — turn a photo and a caption into GTA-poster-style cover art, offline, exported as a PNG in the three common post sizes.">
-<title>VICE COVER STUDIO — GTA-style cover art maker</title>
+<title>Vice Cover Studio — GTA-style cover art maker</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header id="brand">
-  <div class="brand-mark">VICE COVER STUDIO</div>
-  <div class="brand-sub">photo + caption in · poster out · works fully offline</div>
-  <label class="upload-btn">Load your photo
-    <input type="file" id="upload" accept="image/*" hidden>
-  </label>
+<header class="masthead">
+  <div class="brand">
+    <h1>VICE COVER STUDIO</h1>
+    <p>Turn a photo and a caption into cover art with a Vice City pulse.</p>
+  </div>
+  <div class="mast-actions">
+    <button id="surprise" type="button">Surprise Me</button>
+    <span id="recipe-name" class="recipe-name"></span>
+  </div>
 </header>
 
-<main id="studio">
-  <section id="controls" aria-label="Cover controls">
-    <label class="field">Layout
-      <select id="layout"></select>
-    </label>
-    <label class="field">Colour grade
-      <select id="grade"></select>
-    </label>
-    <label class="field">Caption style
-      <select id="style"></select>
-    </label>
-    <label class="field">Preview size
-      <select id="size"></select>
-    </label>
-    <label class="field">Headline
-      <input type="text" id="title" value="SUNDOWN CITY" maxlength="26">
-    </label>
-    <label class="field">Script subtitle
-      <input type="text" id="subtitle" value="the whole crew" maxlength="40">
-    </label>
-    <label class="field">Ribbon tagline
-      <input type="text" id="tagline" value="EVERYBODY WANTS A PIECE OF THE SUNSET" maxlength="52">
-    </label>
-    <label class="field">Sharp finish
-      <input type="range" id="sharp" min="0" max="1" step="0.01" value="0.62">
-    </label>
-    <label class="field">Film grain
-      <input type="range" id="grain" min="0" max="0.4" step="0.01" value="0.16">
-    </label>
-    <button id="surprise" type="button">Surprise Me</button>
-    <div id="recipe-line">Recipe: <span id="recipe-name">Opening Night</span></div>
-    <div id="exports">
-      <button type="button" id="export-post">Export 1080 × 1080 PNG</button>
-      <button type="button" id="export-portrait">Export 1080 × 1350 PNG</button>
-      <button type="button" id="export-wide">Export 1920 × 1080 PNG</button>
+<main class="floor">
+  <section class="stage-wrap">
+    <canvas id="stage" width="900" height="1125"></canvas>
+    <div class="aspect-bar" role="group" aria-label="Preview aspect">
+      <button type="button" data-aspect="portrait">4 : 5</button>
+      <button type="button" data-aspect="square">1 : 1</button>
+      <button type="button" data-aspect="wide">16 : 9</button>
+    </div>
+    <div class="export-bar">
+      <span>Export PNG</span>
+      <button type="button" data-export="1080 × 1350">1080 × 1350</button>
+      <button type="button" data-export="1080 × 1080">1080 × 1080</button>
+      <button type="button" data-export="1920 × 1080">1920 × 1080</button>
     </div>
   </section>
 
-  <section id="stage" aria-label="Live preview">
-    <canvas id="preview" width="540" height="675"></canvas>
-    <p class="hint">Drag the preview to re-crop the selected panel. Every export is drawn by the same renderer as this preview.</p>
-  </section>
+  <aside class="controls">
+    <section>
+      <h2>Cast a photo</h2>
+      <div id="strip" class="strip"></div>
+      <label class="upload-btn">
+        Upload your own photo
+        <input id="upload" type="file" accept="image/*" hidden>
+      </label>
+      <p class="hint">Pick a panel below, then tap a photo to cast it — or drag on the cover itself to re-crop the selected panel.</p>
+    </section>
 
-  <section id="cast" aria-label="Cast panels">
-    <h2>Cast panels</h2>
-    <p class="hint">Pick a panel, then click a photograph below — or your own — to fill it. Role tags are editable.</p>
-    <div id="panels"></div>
-  </section>
+    <section>
+      <h2>Panel</h2>
+      <label>Panel
+        <select id="panel-select"></select>
+      </label>
+      <label>Role tag
+        <input id="role-input" type="text" maxlength="24">
+      </label>
+      <label>Photo
+        <select id="photo-select"></select>
+      </label>
+      <label>Punch <input id="punch" type="range" min="0.90" max="1.10" step="0.01"></label>
+      <label>Zoom <input id="zoom" type="range" min="1" max="2.2" step="0.01"></label>
+      <label>Focus X <input id="focus-x" type="range" min="0" max="1" step="0.01"></label>
+      <label>Focus Y <input id="focus-y" type="range" min="0" max="1" step="0.01"></label>
+    </section>
+
+    <section>
+      <h2>Look</h2>
+      <label>Layout
+        <select id="layout-select">
+          <option value="ensemble">Ensemble Poster</option>
+          <option value="six">Grid Six</option>
+          <option value="quad">Quad Cast</option>
+          <option value="trio">Trio</option>
+          <option value="duo">Duo</option>
+          <option value="solo">Solo Portrait</option>
+          <option value="strip">Cast Strip</option>
+        </select>
+      </label>
+      <label>Grade
+        <select id="grade-select">
+          <option value="vice">Vice Sunset</option>
+          <option value="ocean">Ocean Drive</option>
+          <option value="neon">Neon Night</option>
+          <option value="gold">Golden Hour</option>
+        </select>
+      </label>
+      <label>Caption style
+        <select id="caption-select">
+          <option value="chrome">Retro Chrome</option>
+          <option value="neon">Neon Tube</option>
+          <option value="block">Block Plate</option>
+        </select>
+      </label>
+      <label>Dividers
+        <select id="divider-select">
+          <option value="gold">Gold Frame</option>
+          <option value="neon">Neon Edge</option>
+          <option value="plain">Plain Cut</option>
+        </select>
+      </label>
+      <label>Sharp finish <input id="sharp" type="range" min="0" max="1.2" step="0.01" value="0.62"></label>
+      <label>Film grain <input id="grain" type="range" min="0" max="0.4" step="0.01" value="0.16"></label>
+    </section>
+
+    <section>
+      <h2>Words</h2>
+      <label>Headline <input id="title-input" type="text" value="SUNDOWN CITY" maxlength="26"></label>
+      <label>Script line <input id="subtitle-input" type="text" value="every saint has a past" maxlength="48"></label>
+      <label>Tagline <input id="tagline-input" type="text" value="EVERYBODY WANTS A PIECE OF THE SUNSET" maxlength="52"></label>
+      <label>Review line <input id="review-input" type="text" value="PURE SUNSET ADRENALINE — THE RIDE OF THE YEAR" maxlength="64"></label>
+    </section>
+  </aside>
 </main>
 
-<footer id="samples">
-  <h2>Sample photographs</h2>
-  <div id="strip"></div>
+<footer class="colophon">
+  <p>Every photo stays on your machine. Every ornament is drawn by the studio — no borrowed artwork, ever.</p>
 </footer>
 
-<script type="module" src="src/main.js"></script>
+<script src="src/shots.js"></script>
+<script src="src/grades.js"></script>
+<script src="src/layouts.js"></script>
+<script src="src/decor.js"></script>
+<script src="src/render.js"></script>
+<script src="src/main.js"></script>
 </body>
 </html>

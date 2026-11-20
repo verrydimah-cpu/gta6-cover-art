@@ -1,239 +1,291 @@
-// decor.js — the poster furniture, all of it drawn by the renderer: gold
-// panel frames, cast role tags on a shared baseline grid, the retro-chrome
-// title with round joins and a top sheen, the neon script subtitle, and
-// the small print of a cinema one-sheet — stars, a review line, a ribbon
-// tagline, a VOL. 1 box, a gold BEST CAST seal, a billing block and a
-// barcode whose bars are seeded from the title so they never change.
+'use strict';
+/* VICE COVER STUDIO — the poster's furniture.
+   Chrome lettering, gold frames, stars, ribbon, seal and barcode: every
+   ornament is drawn by the renderer, nothing is a borrowed picture. */
+window.VCS = window.VCS || {};
 
-export const GOLD = '#d9a441';
-export const GOLD_LIGHT = '#f6d789';
-export const INK = '#17060f';
+const GOLD = '#d9a441';
+const GOLD_PALE = '#f3d489';
+const PLUM = '#170a12';
 
-export function panelPath(ctx, x, y, w, h, slant) {
-  const s = slant * h;
-  ctx.beginPath();
-  ctx.moveTo(x + s, y);
-  ctx.lineTo(x + w, y);
-  ctx.lineTo(x + w - s, y + h);
-  ctx.lineTo(x, y + h);
-  ctx.closePath();
-}
+/* The sunset itself, painted on a small tile with an ordered Bayer dither
+   in the mix so the big smooth gradient never bands when it is scaled up. */
+VCS.skyTile = function () {
+  const S = 256;
+  const c = document.createElement('canvas');
+  c.width = S; c.height = S;
+  const ctx = c.getContext('2d');
+  const img = ctx.createImageData(S, S);
+  const stops = [
+    [0.00, 38, 16, 54], [0.34, 122, 32, 84], [0.58, 232, 84, 92],
+    [0.78, 255, 148, 66], [1.00, 255, 205, 110],
+  ];
+  const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  for (let y = 0; y < S; y++) {
+    const t = y / (S - 1);
+    let a = stops[0], b = stops[stops.length - 1];
+    for (let s = 0; s < stops.length - 1; s++) {
+      if (t >= stops[s][0] && t <= stops[s + 1][0]) { a = stops[s]; b = stops[s + 1]; break; }
+    }
+    const f = (t - a[0]) / Math.max(0.0001, b[0] - a[0]);
+    for (let x = 0; x < S; x++) {
+      const i = (y * S + x) * 4;
+      const dith = (bayer[(y % 4) * 4 + (x % 4)] / 16 - 0.5) * 7;
+      img.data[i] = a[1] + (b[1] - a[1]) * f + dith;
+      img.data[i + 1] = a[2] + (b[2] - a[2]) * f + dith;
+      img.data[i + 2] = a[3] + (b[3] - a[3]) * f + dith;
+      img.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  /* a low sun, slightly left of centre */
+  const sun = ctx.createRadialGradient(S * 0.42, S * 0.72, 4, S * 0.42, S * 0.72, S * 0.36);
+  sun.addColorStop(0, 'rgba(255,236,170,0.95)');
+  sun.addColorStop(0.25, 'rgba(255,190,90,0.55)');
+  sun.addColorStop(1, 'rgba(255,150,60,0)');
+  ctx.fillStyle = sun;
+  ctx.fillRect(0, 0, S, S);
+  return c;
+};
 
-export function drawPanelFrame(ctx, x, y, w, h, slant, unit) {
-  panelPath(ctx, x, y, w, h, slant);
-  ctx.strokeStyle = 'rgba(10,2,6,0.85)';
-  ctx.lineWidth = unit * 7;
-  ctx.stroke();
-  panelPath(ctx, x, y, w, h, slant);
+/* The cover's base coat: deep plum with a dusk glow breathing behind the
+   top of the frame. */
+VCS.paintBackdrop = function (ctx, W, H, sky) {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#33152a');
+  g.addColorStop(0.45, '#22101e');
+  g.addColorStop(1, PLUM);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  ctx.drawImage(sky, 0, 0, W, H * 0.30);
+  ctx.restore();
+  /* melt the sky band's lower edge into the plum so no hard line shows
+     in the gaps between panels */
+  const melt = ctx.createLinearGradient(0, H * 0.16, 0, H * 0.32);
+  melt.addColorStop(0, 'rgba(34,16,30,0)');
+  melt.addColorStop(1, 'rgba(34,16,30,0.85)');
+  ctx.fillStyle = melt;
+  ctx.fillRect(0, H * 0.16, W, H * 0.16);
+  const glow = ctx.createRadialGradient(W * 0.5, H * 0.10, 10, W * 0.5, H * 0.10, W * 0.62);
+  glow.addColorStop(0, 'rgba(255,140,80,0.20)');
+  glow.addColorStop(1, 'rgba(255,140,80,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H * 0.5);
+};
+
+/* A panel's frame: the divider styles share one geometry. */
+VCS.drawFrame = function (ctx, x, y, w, h, style) {
+  ctx.save();
+  if (style === 'neon') {
+    ctx.shadowColor = 'rgba(255,64,170,0.85)';
+    ctx.shadowBlur = Math.max(6, w * 0.03);
+    ctx.strokeStyle = '#ff4fae';
+    ctx.lineWidth = Math.max(2, w * 0.008);
+    ctx.strokeRect(x, y, w, h);
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,220,240,0.9)';
+    ctx.lineWidth = Math.max(1, w * 0.003);
+    ctx.strokeRect(x, y, w, h);
+  } else if (style === 'plain') {
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+    ctx.lineWidth = Math.max(2, w * 0.010);
+    ctx.strokeRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+  } else { /* gold */
+    ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+    ctx.lineWidth = Math.max(3, w * 0.016);
+    ctx.strokeRect(x, y, w, h);
+    ctx.strokeStyle = GOLD;
+    ctx.lineWidth = Math.max(2, w * 0.009);
+    ctx.strokeRect(x, y, w, h);
+    ctx.strokeStyle = GOLD_PALE;
+    ctx.lineWidth = Math.max(1, w * 0.003);
+    const inset = Math.max(2, w * 0.014);
+    ctx.strokeRect(x + inset, y + inset, w - inset * 2, h - inset * 2);
+  }
+  ctx.restore();
+};
+
+/* The cast member's name, on a chip that sits on the shared baseline grid:
+   every tag in a row hangs the same distance above its panel's floor. */
+VCS.drawRoleTag = function (ctx, role, x, y, w, h) {
+  if (!role) return;
+  const fs = Math.max(10, Math.min(h * 0.11, w * 0.075));
+  ctx.save();
+  ctx.font = `700 ${fs}px Anton, 'Arial Narrow', sans-serif`;
+  const tw = ctx.measureText(role).width;
+  const padX = fs * 0.55;
+  const chipW = tw + padX * 2;
+  const chipH = fs * 1.62;
+  const chipX = x + w * 0.045;
+  const chipY = y + h - chipH - h * 0.05;
+  ctx.fillStyle = 'rgba(10,4,10,0.78)';
+  ctx.fillRect(chipX, chipY, chipW, chipH);
   ctx.strokeStyle = GOLD;
-  ctx.lineWidth = unit * 2.4;
-  ctx.stroke();
-  panelPath(ctx, x + unit * 3.4, y + unit * 3.4, w - unit * 6.8, h - unit * 6.8, slant);
-  ctx.strokeStyle = 'rgba(246,215,137,0.55)';
-  ctx.lineWidth = unit * 0.9;
-  ctx.stroke();
-}
-
-// Role tags sit on a baseline grid: the tag's baseline is snapped to a
-// whole number of grid steps so every panel in a column lines up.
-export function drawRoleTag(ctx, text, x, y, size, grid) {
-  const snappedY = Math.round(y / grid) * grid;
-  ctx.save();
-  ctx.font = `${size}px Anton, sans-serif`;
-  ctx.textBaseline = 'alphabetic';
-  const w = ctx.measureText(text).width;
-  ctx.fillStyle = 'rgba(12,2,8,0.72)';
-  ctx.fillRect(x - size * 0.22, snappedY - size * 0.98, w + size * 0.44, size * 1.24);
-  ctx.fillStyle = GOLD_LIGHT;
-  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-  ctx.lineWidth = size * 0.06;
-  ctx.strokeText(text, x, snappedY);
-  ctx.fillText(text, x, snappedY);
+  ctx.lineWidth = Math.max(1, fs * 0.07);
+  ctx.strokeRect(chipX, chipY, chipW, chipH);
+  ctx.fillStyle = GOLD_PALE;
+  ctx.textBaseline = 'middle';
+  ctx.fillText(role, chipX + padX, chipY + chipH * 0.54);
   ctx.restore();
-  return snappedY;
-}
+};
 
-// The chrome title: a vertical metal gradient (sky at the top, a hot pink
-// band, deep plum at the foot), a dark outline drawn with round joins so
-// no letter spikes, and a soft white sheen clipped to the top half.
-export function drawChromeTitle(ctx, text, cx, y, size) {
+/* The headline. Three voices: retro chrome, neon tube, or a block plate. */
+VCS.drawTitle = function (ctx, title, style, cx, top, maxW) {
+  const text = (title || 'SUNDOWN CITY').toUpperCase();
+  let fs = maxW / Math.max(4.4, text.length * 0.62);
   ctx.save();
-  ctx.font = `${size}px Anton, sans-serif`;
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
-  const grad = ctx.createLinearGradient(0, y - size, 0, y + size * 0.12);
-  grad.addColorStop(0, '#fdfdff');
-  grad.addColorStop(0.34, '#a8d8ff');
-  grad.addColorStop(0.52, '#ff5e8a');
-  grad.addColorStop(0.72, '#ff9a5a');
-  grad.addColorStop(1, '#571b4d');
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#1c0518';
-  ctx.lineWidth = size * 0.16;
-  ctx.strokeText(text, cx, y);
-  ctx.fillStyle = grad;
-  ctx.fillText(text, cx, y);
-  ctx.save();
-  ctx.beginPath();
-  const w = ctx.measureText(text).width;
-  ctx.rect(cx - w / 2, y - size, w, size * 0.42);
-  ctx.clip();
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  ctx.fillText(text, cx, y);
+  ctx.textBaseline = 'top';
+  if (style === 'neon') {
+    ctx.font = `${fs}px Anton, 'Arial Narrow', sans-serif`;
+    for (let pass = 0; pass < 3; pass++) {
+      ctx.shadowColor = 'rgba(255,64,170,0.9)';
+      ctx.shadowBlur = 26 - pass * 7;
+      ctx.fillStyle = pass === 2 ? '#ffd7ef' : '#ff4fae';
+      ctx.fillText(text, cx, top);
+    }
+  } else if (style === 'block') {
+    ctx.font = `${fs}px Anton, 'Arial Narrow', sans-serif`;
+    const tw = ctx.measureText(text).width;
+    ctx.fillStyle = 'rgba(8,3,8,0.88)';
+    ctx.fillRect(cx - tw / 2 - fs * 0.35, top - fs * 0.12, tw + fs * 0.7, fs * 1.34);
+    ctx.strokeStyle = GOLD;
+    ctx.lineWidth = Math.max(1.5, fs * 0.045);
+    ctx.strokeRect(cx - tw / 2 - fs * 0.35, top - fs * 0.12, tw + fs * 0.7, fs * 1.34);
+    ctx.fillStyle = '#ffe9b0';
+    ctx.fillText(text, cx, top);
+  } else { /* chrome */
+    ctx.font = `${fs}px Anton, 'Arial Narrow', sans-serif`;
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#2b0f22';
+    ctx.lineWidth = fs * 0.16;
+    ctx.strokeText(text, cx, top);
+    const grad = ctx.createLinearGradient(0, top, 0, top + fs);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.38, '#ffd9ec');
+    grad.addColorStop(0.52, '#ff5fa8');
+    grad.addColorStop(0.75, '#ffb35c');
+    grad.addColorStop(1, '#ff7847');
+    ctx.fillStyle = grad;
+    ctx.fillText(text, cx, top);
+    /* the sheen: a soft white pass clipped to the letters' top half */
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(cx - maxW / 2, top, maxW, fs * 0.42);
+    ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,0.32)';
+    ctx.fillText(text, cx, top);
+    ctx.restore();
+  }
   ctx.restore();
-  ctx.restore();
-}
+  return fs;
+};
 
-// The script subtitle in neon pink: three even glow passes, then a pale
-// core, so the halo is smooth instead of blotchy.
-export function drawScriptSubtitle(ctx, text, cx, y, size) {
+/* The neon script line under the title. */
+VCS.drawScript = function (ctx, line, cx, y, size) {
+  if (!line) return;
   ctx.save();
-  ctx.font = `italic 700 ${size}px "Segoe Script", "Snell Roundhand", cursive`;
+  ctx.font = `italic 700 ${size}px 'Segoe Script', 'Brush Script MT', cursive`;
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
-  for (const blur of [size * 0.55, size * 0.3, size * 0.14]) {
-    ctx.shadowColor = 'rgba(255,46,136,0.85)';
-    ctx.shadowBlur = blur;
-    ctx.fillStyle = 'rgba(255,46,136,0.55)';
-    ctx.fillText(text, cx, y);
+  ctx.textBaseline = 'top';
+  for (let pass = 0; pass < 3; pass++) {
+    ctx.shadowColor = 'rgba(64,224,255,0.9)';
+    ctx.shadowBlur = 18 - pass * 5;
+    ctx.fillStyle = pass === 2 ? '#e8fbff' : '#57d7ff';
+    ctx.fillText(line, cx, y);
   }
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#ffd7ea';
-  ctx.fillText(text, cx, y);
   ctx.restore();
-}
+};
 
-function starPath(ctx, cx, cy, r) {
-  ctx.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const rad = i % 2 === 0 ? r : r * 0.45;
-    const a = -Math.PI / 2 + (i * Math.PI) / 5;
-    const px = cx + Math.cos(a) * rad, py = cy + Math.sin(a) * rad;
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
-}
-
-export function drawStars(ctx, cx, y, size, count = 5) {
+VCS.drawStars = function (ctx, cx, y, size) {
   ctx.save();
   ctx.fillStyle = GOLD;
-  const step = size * 1.45;
-  for (let i = 0; i < count; i++) {
-    starPath(ctx, cx + (i - (count - 1) / 2) * step, y, size * 0.5);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-export function drawReviewLine(ctx, text, cx, y, size) {
-  ctx.save();
-  ctx.font = `${size}px Anton, sans-serif`;
+  ctx.font = `${size}px sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#f3e2c2';
-  ctx.fillText(`“${text}”`, cx, y);
+  ctx.textBaseline = 'middle';
+  ctx.fillText('★ ★ ★ ★ ★', cx, y);
   ctx.restore();
-}
+};
 
-export function drawVolBox(ctx, x, y, size) {
+/* The tagline ribbon across the footer's rhythm. */
+VCS.drawRibbon = function (ctx, text, cx, y, w, h) {
+  if (!text) return;
   ctx.save();
-  ctx.strokeStyle = GOLD;
-  ctx.lineWidth = size * 0.05;
-  ctx.strokeRect(x, y, size, size);
-  ctx.fillStyle = GOLD_LIGHT;
-  ctx.font = `${size * 0.34}px Anton, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillText('VOL.', x + size / 2, y + size * 0.44);
-  ctx.fillText('1', x + size / 2, y + size * 0.82);
-  ctx.restore();
-}
-
-export function drawRibbon(ctx, text, cx, y, w, size) {
-  ctx.save();
-  const h = size * 1.5;
-  ctx.fillStyle = '#8c1d5d';
+  ctx.fillStyle = '#8c1d4f';
+  ctx.fillRect(cx - w / 2, y, w, h);
+  ctx.fillStyle = '#5e1034';
   ctx.beginPath();
-  ctx.moveTo(cx - w / 2, y);
-  ctx.lineTo(cx + w / 2, y);
-  ctx.lineTo(cx + w / 2 - size * 0.5, y + h / 2);
-  ctx.lineTo(cx + w / 2, y + h);
-  ctx.lineTo(cx - w / 2, y + h);
-  ctx.lineTo(cx - w / 2 + size * 0.5, y + h / 2);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = GOLD;
-  ctx.lineWidth = size * 0.07;
-  ctx.stroke();
-  ctx.font = `${size}px Anton, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#ffe9f4';
-  ctx.fillText(text, cx, y + h * 0.68);
-  ctx.restore();
-}
-
-export function drawSeal(ctx, cx, cy, r) {
-  ctx.save();
+  ctx.moveTo(cx - w / 2, y); ctx.lineTo(cx - w / 2 - h * 0.5, y + h / 2); ctx.lineTo(cx - w / 2, y + h); ctx.closePath(); ctx.fill();
   ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = GOLD;
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(cx, cy, r * 0.8, 0, Math.PI * 2);
-  ctx.strokeStyle = '#7a5514';
-  ctx.lineWidth = r * 0.06;
-  ctx.stroke();
-  starPath(ctx, cx, cy - r * 0.28, r * 0.3);
-  ctx.fillStyle = '#7a5514';
-  ctx.fill();
-  ctx.font = `${r * 0.3}px Anton, sans-serif`;
+  ctx.moveTo(cx + w / 2, y); ctx.lineTo(cx + w / 2 + h * 0.5, y + h / 2); ctx.lineTo(cx + w / 2, y + h); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = GOLD_PALE;
+  ctx.lineWidth = Math.max(1, h * 0.05);
+  ctx.strokeRect(cx - w / 2, y, w, h);
+  ctx.fillStyle = '#ffe9b0';
+  ctx.font = `700 ${h * 0.44}px Anton, 'Arial Narrow', sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText('BEST', cx, cy + r * 0.28);
-  ctx.fillText('CAST', cx, cy + r * 0.58);
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, cx, y + h * 0.54);
   ctx.restore();
-}
+};
 
-// Fictional small print: the billing block every one-sheet carries, in
-// condensed lines nobody is meant to read. The compact footer asks for a
-// single line; the full footer takes all three.
-export function drawBilling(ctx, cx, y, w, size, lineCount = 3) {
-  const lines = [
-    'SUNDOWN PICTURES PRESENTS A VICE COVER STUDIO PRODUCTION',
-    'CASTING BY THE CREW · MUSIC BY THE HARBOUR BAND · COSTUMES BY NEON ATELIER',
-    'DIRECTED BY THE DRIVER · PRODUCED SOMEWHERE PAST THE CAUSEWAY',
-  ].slice(0, lineCount);
+/* The gold BEST CAST seal. */
+VCS.drawSeal = function (ctx, cx, cy, r) {
   ctx.save();
-  ctx.font = `${size}px Anton, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(243,226,194,0.75)';
-  lines.forEach((line, i) => ctx.fillText(line, cx, y + i * size * 1.35, w));
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = GOLD; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.78, 0, Math.PI * 2);
+  ctx.fillStyle = '#8c1d4f'; ctx.fill();
+  ctx.fillStyle = GOLD_PALE;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `700 ${r * 0.34}px Anton, sans-serif`;
+  ctx.fillText('BEST', cx, cy - r * 0.20);
+  ctx.fillText('CAST', cx, cy + r * 0.18);
+  ctx.font = `${r * 0.30}px sans-serif`;
+  ctx.fillText('★', cx, cy + r * 0.52);
   ctx.restore();
-}
+};
 
-function seededBars(text, count) {
+/* A seeded barcode — the same cover always grows the same stripes. */
+VCS.drawBarcode = function (ctx, seedText, x, y, w, h) {
   let seed = 7;
-  for (const ch of text) seed = (seed * 31 + ch.charCodeAt(0)) & 0x7fffffff;
-  const bars = [];
-  for (let i = 0; i < count; i++) {
-    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-    bars.push(1 + (seed % 4));
-  }
-  return bars;
-}
-
-export function drawBarcode(ctx, x, y, w, h, seedText) {
+  for (const ch of seedText || '') seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
   ctx.save();
-  ctx.fillStyle = '#f7f2e7';
+  ctx.fillStyle = '#f5efe2';
   ctx.fillRect(x, y, w, h);
   ctx.fillStyle = '#14100c';
-  const bars = seededBars(seedText, 42);
-  const total = bars.reduce((a, b) => a + b, 0) + bars.length;
   let bx = x + w * 0.06;
-  const unitW = (w * 0.88) / total;
-  bars.forEach((b, i) => {
-    if (i % 2 === 0) ctx.fillRect(bx, y + h * 0.12, b * unitW, h * 0.62);
-    bx += (b + 1) * unitW;
-  });
-  ctx.font = `${h * 0.16}px monospace`;
+  const unit = w * 0.012;
+  while (bx < x + w * 0.92) {
+    seed = (seed * 1103515245 + 12345) >>> 0;
+    const bars = 1 + (seed % 3);
+    if ((seed >> 4) % 3 !== 0) ctx.fillRect(bx, y + h * 0.10, unit * bars, h * 0.68);
+    bx += unit * (bars + 1);
+  }
+  ctx.font = `${h * 0.13}px monospace`;
   ctx.textAlign = 'center';
-  ctx.fillText('8 901357 202611', x + w / 2, y + h * 0.92);
+  ctx.fillText('VOL 1 · LEONIDA', x + w / 2, y + h * 0.90);
   ctx.restore();
-}
+};
+
+/* The fictional billing block, set small and wide like a real poster. */
+VCS.drawBilling = function (ctx, cx, y, w) {
+  const lines = [
+    'SUNDOWN PICTURES PRESENTS A VICE COVER STUDIO PRODUCTION',
+    'CASTING BY THE NEIGHBOURHOOD · MUSIC BY THE HARBOUR BAND · COSTUMES BY PALM & CHROME',
+    'FILMED ON LOCATION IN LEONIDA · NO SAINTS WERE HARMED',
+  ];
+  ctx.save();
+  ctx.fillStyle = 'rgba(240,220,190,0.66)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  const fs = w * 0.021;
+  ctx.font = `${fs}px 'Arial Narrow', Arial, sans-serif`;
+  lines.forEach((line, i) => ctx.fillText(line, cx, y + i * fs * 1.5));
+  ctx.restore();
+};
