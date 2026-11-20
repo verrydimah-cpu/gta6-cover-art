@@ -3,86 +3,101 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vice Cover Studio — GTA-style cover art maker</title>
+<title>Vice Cover Studio — GTA-style poster maker</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="topbar">
+<header class="masthead">
   <div class="brand">
-    <span class="brand-mark">VC</span>
+    <span class="brand-mark">VCS</span>
     <div>
       <h1>Vice Cover Studio</h1>
-      <p>Turn a photo and a caption into bold poster-style cover art — fully offline, nothing uploaded.</p>
+      <p>Turn a photo into a Vice City poster — panels, chrome lettering, sunset grade, exported as a PNG.</p>
     </div>
   </div>
-  <button id="surpriseBtn" class="surprise" type="button">🎲 Surprise Me</button>
+  <button id="surprise" class="surprise" type="button">✦ Surprise Me</button>
 </header>
 
-<main class="stage">
-  <section class="preview-pane">
-    <div id="dropZone" class="canvas-wrap">
-      <canvas id="preview" width="540" height="675"></canvas>
-      <p class="drop-hint">Drop your own photo here, or use a sample below</p>
+<main class="workspace">
+  <section class="stage-wrap">
+    <div class="stage">
+      <canvas id="preview" width="880" height="880"></canvas>
     </div>
-    <div class="samples" id="sampleRow" aria-label="Bundled sample photos"></div>
-    <div class="export-box">
-      <h2>Export</h2>
-      <div class="export-row">
-        <label>Size
-          <select id="exportSize">
-            <option value="1080x1080">Square · 1080 × 1080</option>
-            <option value="1080x1350" selected>Portrait · 1080 × 1350</option>
-            <option value="1920x1080">Wide · 1920 × 1080</option>
-          </select>
-        </label>
-        <button id="exportBtn" type="button">Download PNG</button>
-      </div>
-      <figure id="exportFigure" hidden>
-        <img id="exportPreview" alt="Your exported cover">
-        <figcaption>Your exported cover, exactly as downloaded.</figcaption>
-      </figure>
+    <p class="hint">Drag a panel to reposition its photo · scroll over a panel to zoom it · click a cast panel, then a sample, to recast it · every change renders live.</p>
+    <div class="export-bar">
+      <span class="export-label">Export PNG</span>
+      <button type="button" data-export="1080x1080">Square 1080 × 1080</button>
+      <button type="button" data-export="1080x1350">Portrait 1080 × 1350</button>
+      <button type="button" data-export="1920x1080">Wide 1920 × 1080</button>
     </div>
+    <p id="status" class="status" role="status"></p>
   </section>
 
   <aside class="controls">
-    <fieldset>
-      <legend>Caption</legend>
-      <label>Title <input id="titleInput" type="text" maxlength="42" value="VICE CITY HEAT"></label>
-      <label>Subtitle <input id="subtitleInput" type="text" maxlength="48" value="One city · No brakes"></label>
-      <label>Caption style <select id="captionStyle"></select></label>
-    </fieldset>
+    <section class="card">
+      <h2>1 · Photo</h2>
+      <label class="upload">
+        <input id="upload" type="file" accept="image/*">
+        <span>Upload your photo</span>
+      </label>
+      <div id="samples" class="samples"></div>
+      <label class="row"><span>Fill panels</span>
+        <select id="mode">
+          <option value="spread">Several photos, one per panel</option>
+          <option value="single">One photo across all panels</option>
+        </select>
+      </label>
+    </section>
 
-    <fieldset>
-      <legend>Collage</legend>
-      <label>Layout <select id="layoutSelect"></select></label>
-      <label>Colour grade <select id="gradeSelect"></select></label>
-      <label>Dividers <select id="dividerSelect"></select></label>
-    </fieldset>
+    <section class="card">
+      <h2>2 · Collage layout</h2>
+      <div id="layouts" class="chips"></div>
+      <h2 class="sub">Colour grade</h2>
+      <div id="grades" class="chips"></div>
+    </section>
 
-    <fieldset>
-      <legend>Panels</legend>
-      <div id="panelControls"></div>
-    </fieldset>
+    <section class="card">
+      <h2>3 · Caption</h2>
+      <label class="row"><span>Title</span><input id="title" type="text" maxlength="26"></label>
+      <label class="row"><span>Subtitle</span><input id="subtitle" type="text" maxlength="40"></label>
+      <label class="row"><span>Tagline</span><input id="tagline" type="text" maxlength="48"></label>
+      <label class="row"><span>Style</span>
+        <select id="captionStyle">
+          <option value="poster">Chrome poster</option>
+          <option value="banner">Bottom banner</option>
+          <option value="top">Top billing</option>
+        </select>
+      </label>
+      <label class="row"><span>Dividers</span>
+        <select id="divider">
+          <option value="gold">Thin gold frames</option>
+          <option value="ink">Ink and paper</option>
+          <option value="neon">Neon glow</option>
+          <option value="chrome">Chrome edge</option>
+        </select>
+      </label>
+    </section>
 
-    <fieldset>
-      <legend>Punch — crop the selected panel</legend>
-      <label>Panel <select id="punchPanel"></select></label>
-      <label>Zoom <input id="punchZoom" type="range" min="1" max="2" step="0.05" value="1.1"></label>
-      <label>Focus X <input id="punchFx" type="range" min="0" max="1" step="0.02" value="0.5"></label>
-      <label>Focus Y <input id="punchFy" type="range" min="0" max="1" step="0.02" value="0.45"></label>
-    </fieldset>
+    <section class="card">
+      <h2>4 · Panels</h2>
+      <div id="panelList" class="panel-list"></div>
+    </section>
 
-    <fieldset>
-      <legend>Finish</legend>
-      <label>Sharp finish <input id="sharpRange" type="range" min="0" max="1.5" step="0.1" value="0.6"></label>
-      <label class="file-label">Your photo <input id="fileInput" type="file" accept="image/*"></label>
-      <p class="note">Your photo replaces the photo in the selected punch panel. Nothing leaves your device.</p>
-    </fieldset>
+    <section class="card">
+      <h2>5 · Film finish</h2>
+      <label class="row"><span>Grain &amp; vignette</span>
+        <input id="grain" type="range" min="0" max="2" step="0.05">
+      </label>
+      <label class="row"><span>Sharp finish</span>
+        <input id="sharp" type="range" min="0" max="1" step="0.05">
+      </label>
+      <p class="fine">Sharp finish is a gentle unsharp mask baked into the preview and every export — detail without halos.</p>
+    </section>
   </aside>
 </main>
 
-<footer class="foot">
-  <p>Vice Cover Studio — an original fan-made cover toy. Anton typeface under the SIL Open Font License 1.1 (see fonts/OFL.txt).</p>
+<footer class="colophon">
+  <p>Vice Cover Studio runs fully offline. Your photos never leave this machine. Lettering set in Anton (SIL Open Font License).</p>
 </footer>
 
 <script type="module" src="src/main.js"></script>

@@ -1,31 +1,27 @@
-// main.ts — VICE COVER STUDIO entrypoint for the make.fun grader.
+// main.ts — hand-in program for VICE COVER STUDIO (gta6-cover-art-01).
+// Copies app/ and screenshots/ into the output directory and writes
+// dossier.json with the kit's buildDossier, byte for byte as the
+// grader will rebuild it. Runs on Node 22, standard library only.
 //
-// The grader runs `node /bot/main.ts` (Node 22) with the repository
-// mounted READ-ONLY at /bot and the output directory as a MOUNTED
-// volume (MAKEFUN_OUTPUT_DIR, default /output). A mounted volume's
-// root directory itself cannot be removed — rmSync(out) dies with
-// EBUSY — so we create the directory if needed and then clear only
-// its CONTENTS, entry by entry, never the directory itself.
+// Mount fix: on the grader the output directory is a mount point, so
+// it must never be removed itself. We create it if needed, then clear
+// only its contents, entry by entry, before copying fresh files in.
 
 import { cpSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { buildDossier } from './vendor/makefun-app.ts';
 
-const root = dirname(fileURLToPath(import.meta.url));
 const out = process.env.MAKEFUN_OUTPUT_DIR || '/output';
+// Round 5 note: the clearing below is deliberately entry-by-entry —
+// removing `out` itself fails on the grader's mount with EBUSY.
 
-// Create the output directory first (a no-op when the mount exists).
 mkdirSync(out, { recursive: true });
-
-// Clear only the contents, entry by entry — never rmSync(out) itself,
-// because out is a mount point and removing it fails with EBUSY.
 for (const entry of readdirSync(out)) {
   rmSync(join(out, entry), { recursive: true, force: true });
 }
 
-cpSync(join(root, 'app'), join(out, 'app'), { recursive: true });
-cpSync(join(root, 'screenshots'), join(out, 'screenshots'), { recursive: true });
+cpSync('app', join(out, 'app'), { recursive: true });
+cpSync('screenshots', join(out, 'screenshots'), { recursive: true });
 
 const dossier = buildDossier(out, {
   text_max_bytes: 163840,
@@ -33,6 +29,5 @@ const dossier = buildDossier(out, {
   app_max_files: 993,
   app_max_bytes: 50331648,
 });
-// buildDossier returns the finished dossier bytes — write them as-is.
+
 writeFileSync(join(out, 'dossier.json'), dossier);
-console.log(`VICE COVER STUDIO dossier written: ${dossier.byteLength} bytes -> ${join(out, 'dossier.json')}`);
