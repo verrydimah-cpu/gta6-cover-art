@@ -4,35 +4,16 @@
 [![rank](https://make.fun/badge/gta6-cover-art-01/verrydimah-cpu/gta6-cover-art/rank.svg)](https://make.fun/bounty/gta6-cover-art-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01)
 [![reward](https://make.fun/badge/gta6-cover-art-01/verrydimah-cpu/gta6-cover-art/reward.svg)](https://make.fun/bounty/gta6-cover-art-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01)
 
-**VICE COVER STUDIO** — a static, fully offline web app that turns your photos and a caption into poster-style cover art on a canvas. Load photos, cast your crew across gold-framed panels, pick a photographic grade, and export a finished cover as a PNG. One render function drives both the live preview and every export, so what you see is exactly what you download.
-
-## What it does
-
-- **Ensemble Poster** (the default): ten gold-framed cast panels on a dark plum-brown backdrop around one dominant central portrait — THE DRIVER in the centre, THE GETAWAY, THE RIDE, THE FIXER and THE RACER down the left, THE CAPTAIN, THE MUSCLE and THE INSIDER down the right, and THE RIDER with THE LOOKOUT along the bottom row.
-- **Seven layouts** in total, including a Vice Classic multi-panel collage with angled dividers, Solo Hero, Duo Split, Trio Strip, Quad Grid and Mosaic Six — with gold, white, black or no divider keylines.
-- **Four photographic grades** — Vice Sunset, Neon Night, Golden Hour and Ocean Drive — built from multi-stop sky gradients, a soft sun glow screened across every panel, and split toning that keeps skin tones natural.
-- **Full casting control**: photo loading for several photos at once, per-panel crop, position, zoom and punch, and editable per-panel role tags drawn as black slash-tags with a gold rule on a shared baseline grid.
-- **Three caption styles**, an editable cover title, script subtitle, ribbon tagline and review line, plus original poster furniture: five gold stars, a VOL. 1 corner box, a retro-chrome stacked title, a BEST CAST seal, a barcode block, a COMING SOON block and a tiny fictional billing block.
-- **Film finish**: seeded luminance-only film grain, a gentle vignette, and an in-app Sharp (unsharp) finish, default 0.62, shared by the preview and the exports.
-- **Surprise Me**: nine one-click recipes that recast the whole poster.
-- **Exports** at exactly 1080×1080, 1080×1350 and 1920×1080 px from the app's own export buttons.
-- **Zero network**: no external requests anywhere — the app, its font and its sample cast all ship in this repository and run from local files.
-
-Round 8 is a finesse pass over the round 7 studio: dithered gradients with no visible banding, finer and softer grain, a gentler vignette, cleaner chrome lettering with a softer, more even neon glow, balanced punch across all ten ensemble panels with natural skin tones, and micro-spaced poster furniture — subtitle, ribbon and billing on one optical rhythm — checked at thumbnail size as well as full size.
+VICE COVER STUDIO is a static, fully offline web app that turns photos into original sunset-poster cover art. One canvas renderer drives both the live preview and the PNG exports at exactly 1080×1080, 1080×1350 and 1920×1080. It offers 7 layouts (the default is a 10-panel Ensemble Poster around one dominant central portrait, THE DRIVER, with THE GETAWAY, THE RIDE, THE FIXER, THE RACER, THE CAPTAIN, THE MUSCLE, THE INSIDER, THE RIDER and THE LOOKOUT), 4 colour grades (Vice Sunset, Neon Night, Golden Hour, Ocean Drive), 3 caption styles, gold and other divider styles, per-panel crop, zoom and punch, editable per-panel role tags, film grain and vignette, an in-app Sharp finish (default 0.62), a Surprise Me button with 9 recipes, and upload of your own photo. All poster furniture — five gold stars and a review line, a VOL. 1 corner box, retro-chrome title, neon script subtitle, gold-bordered ribbon tagline, COMING SOON block, fictional billing block, gold BEST CAST seal and barcode — is original text drawn by the renderer. No network references anywhere in the app; the Anton font is vendored locally under its open license.
 
 ## Run it
 
 ```sh
-node serve.ts
-# then open http://localhost:8417/app/ in a browser
+node main.ts
 ```
 
-To build the hand-in bundle (app + screenshots + dossier.json) into an output directory:
-
-```sh
-MAKEFUN_OUTPUT_DIR=./out node main.ts
-```
+That copies the app and screenshots to the output directory (or `$MAKEFUN_OUTPUT_DIR`) and writes the dossier. To try the app itself, serve the `app/` folder with any static file server (for example `node serve.ts`) and open it in a browser — no build step and no network needed.
 
 ---
 
-<sub>Entered on [make.fun](https://make.fun/?ref=hz6kvzj2&utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01) · AI agents build software for cash rewards</sub>
+Entered on [make.fun](https://make.fun/?ref=hz6kvzj2&utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01) · AI agents build software for cash rewards

@@ -3,113 +3,42 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vice Cover Studio — poster-style cover art from your photos</title>
+<title>Vice Cover Studio — turn photos into poster cover art</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">
-    <h1>VICE COVER STUDIO</h1>
-    <p class="tagline"><em>Load your photos. Cast your crew. Print the poster.</em></p>
-  </div>
-  <div class="actions">
-    <button id="surpriseBtn" type="button" class="btn pink">Surprise Me</button>
-    <label class="btn gold-outline" for="fileInput">Upload your photos</label>
-    <input id="fileInput" type="file" accept="image/*" multiple hidden>
+  <div class="brand"><span class="brand-mark">VC</span><div><h1>Vice Cover Studio</h1><p>Turn any photo into sunset poster cover art — fully offline.</p></div></div>
+  <div class="exports">
+    <button id="exp-square" type="button">Export 1080×1080</button>
+    <button id="exp-portrait" type="button">Export 1080×1350</button>
+    <button id="exp-wide" type="button">Export 1920×1080</button>
   </div>
 </header>
-
-<main class="layout">
-  <section class="stage-wrap">
-    <canvas id="stage" width="1080" height="1350"></canvas>
-    <p id="status" class="status" role="status"></p>
-    <div class="export-row">
-      <span>Export PNG:</span>
-      <button type="button" class="btn dark" data-export="1080x1080">1080 × 1080</button>
-      <button type="button" class="btn dark" data-export="1080x1350">1080 × 1350</button>
-      <button type="button" class="btn dark" data-export="1920x1080">1920 × 1080</button>
-    </div>
+<main class="layout-main">
+  <section class="stage">
+    <canvas id="preview" width="1080" height="1080" aria-label="Live cover preview"></canvas>
+    <p class="hint">Live preview uses the exact same renderer as the PNG exports — what you see is what you download.</p>
   </section>
-
   <aside class="controls">
-    <fieldset>
-      <legend>Poster</legend>
-      <label>Layout
-        <select id="layoutSel">
-          <option value="ensemble" selected>Ensemble Poster</option>
-          <option value="classic">Vice Classic</option>
-          <option value="solo">Solo Hero</option>
-          <option value="duo">Duo Split</option>
-          <option value="trio">Trio Strip</option>
-          <option value="quad">Quad Grid</option>
-          <option value="mosaic">Mosaic Six</option>
-        </select>
-      </label>
-      <label>Colour grade
-        <select id="gradeSel">
-          <option value="sunset" selected>Vice Sunset</option>
-          <option value="neon">Neon Night</option>
-          <option value="golden">Golden Hour</option>
-          <option value="ocean">Ocean Drive</option>
-        </select>
-      </label>
-      <label>Caption style
-        <select id="captionSel">
-          <option value="chrome" selected>Chrome Block</option>
-          <option value="magazine">Magazine Masthead</option>
-          <option value="minimal">Minimal</option>
-        </select>
-      </label>
-      <label>Divider
-        <select id="dividerSel">
-          <option value="gold" selected>Gold Keyline</option>
-          <option value="white">White Keyline</option>
-          <option value="black">Black Keyline</option>
-          <option value="none">No Divider</option>
-        </select>
-      </label>
-      <label>Preview aspect
-        <select id="aspectSel">
-          <option value="1080x1080">Square 1080×1080</option>
-          <option value="1080x1350" selected>Portrait 1080×1350</option>
-          <option value="1920x1080">Wide 1920×1080</option>
-        </select>
-      </label>
-      <label>Sharp finish
-        <input id="sharpRange" type="range" min="0" max="1" step="0.01" value="0.62">
-      </label>
-    </fieldset>
-
-    <fieldset>
-      <legend>Words</legend>
-      <label>Title line one <input id="title1" type="text" value="VICE"></label>
-      <label>Title line two <input id="title2" type="text" value="COVER"></label>
-      <label>Script subtitle <input id="subtitle" type="text" value="Sunset City Stories"></label>
-      <label>Ribbon tagline <input id="ribbon" type="text" value="EVERYBODY WANTS A PIECE OF THE SUNSET"></label>
-      <label>Review line <input id="review" type="text" value="PURE SUNSET ADRENALINE — THE RIDE OF THE YEAR"></label>
-    </fieldset>
-
-    <fieldset>
-      <legend>Cast</legend>
-      <div id="castList" class="cast-list"></div>
-      <h3 id="panelTitle">Panel 1</h3>
-      <label>Photo
-        <select id="photoSel"></select>
-      </label>
-      <label>Role tag <input id="roleInput" type="text" value="THE DRIVER"></label>
-      <label>Zoom <input id="zoomRange" type="range" min="1" max="2.5" step="0.01" value="1"></label>
-      <label>Shift left / right <input id="xRange" type="range" min="-1" max="1" step="0.01" value="0"></label>
-      <label>Shift up / down <input id="yRange" type="range" min="-1" max="1" step="0.01" value="0"></label>
-      <label>Punch <input id="punchRange" type="range" min="0.7" max="1.4" step="0.01" value="1"></label>
-      <p class="hint">Tip: one photo can star in several panels, or load several photos and cast each panel its own. Click a panel on the poster to select it. Punch is pre-balanced per sample so the whole cast shares one contrast family — nudge it only for your own photos.</p>
-    </fieldset>
+    <label>Title <input id="title" type="text" value="VICE COVER"></label>
+    <label>Subtitle <input id="subtitle" type="text" value="Tales from the Sunset Strip"></label>
+    <label>Tagline <input id="tagline" type="text" value="EVERYONE WANTS A PIECE OF THE SUNSET"></label>
+    <label>Layout <select id="layout"></select></label>
+    <label>Grade <select id="grade"></select></label>
+    <label>Caption style <select id="caption"></select></label>
+    <label>Divider style <select id="divider"></select></label>
+    <label>Sharp finish <span id="sharp-val">0.62</span><input id="sharp" type="range" min="0" max="1" step="0.01" value="0.62"></label>
+    <label>Film grain <input id="grain" type="range" min="0" max="1" step="0.01" value="0.5"></label>
+    <label>Vignette <input id="vignette" type="range" min="0" max="1" step="0.01" value="0.5"></label>
+    <label>Upload your own photo <input id="upload" type="file" accept="image/*"></label>
+    <button id="surprise" type="button">🎲 Surprise Me</button>
+    <p id="recipe-name" class="recipe"></p>
+    <h2>Panels — role tags, crop &amp; punch</h2>
+    <div id="panels"></div>
   </aside>
 </main>
-
-<footer class="foot">
-  <p>Vice Cover Studio runs entirely offline in your browser. Your photos never leave this page. All poster lettering and artwork are original to this studio.</p>
-</footer>
-
+<footer><p>All artwork, names and text in the generated covers are original and fictional. Works offline; no photo ever leaves your device.</p></footer>
 <script type="module" src="src/main.js"></script>
 </body>
 </html>
