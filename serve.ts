@@ -1,14 +1,7 @@
-// VICE COVER STUDIO — tiny local preview server.
-//
-// Serves the static app/ folder so the cover maker can be tried in a browser
-// with no build step and no network access. Like main.ts, it finds app/ from
-// its own location rather than the caller's working directory, so it can be
-// launched from anywhere:
-//
-//   node serve.ts            # http://localhost:4173
-//   PORT=8080 node serve.ts  # custom port
-//
-// Standard library only.
+// serve.ts — tiny static file server for local preview and for the
+// screenshot pipeline. Serves the repository root so the app lives at
+// /app/ and the capture script can also reach /shots.json.
+// Usage: node serve.ts [port]   (default 8417)
 
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -16,49 +9,41 @@ import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
-const appDir = join(root, 'app');
-const port = Number(process.env.PORT || 4173);
+const port = Number(process.argv[2] || 8417);
 
-const MIME: Record<string, string> = {
+const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
-  '.txt': 'text/plain; charset=utf-8',
-  '.webp': 'image/webp',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
   '.ttf': 'font/ttf',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
+  '.webp': 'image/webp',
+  '.jpg': 'image/jpeg',
+  '.png': 'image/png',
+  '.txt': 'text/plain; charset=utf-8',
+  '.md': 'text/plain; charset=utf-8',
+  '.ts': 'text/plain; charset=utf-8',
 };
 
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url || '/', 'http://localhost');
-    let rel = decodeURIComponent(url.pathname);
-    if (rel === '/' || rel === '') rel = '/index.html';
-    // Normalise and refuse anything that climbs out of app/.
-    const filePath = normalize(join(appDir, rel));
-    if (!filePath.startsWith(appDir)) {
-      res.writeHead(403, { 'content-type': 'text/plain' });
-      res.end('forbidden');
-      return;
-    }
-    const data = await readFile(filePath);
+    let path = decodeURIComponent(url.pathname);
+    if (path === '/') path = '/app/index.html';
+    if (path.endsWith('/')) path += 'index.html';
+    const file = join(root, normalize(path).replace(/^([/\\])+/, ''));
+    if (!file.startsWith(root)) { res.writeHead(403); res.end('forbidden'); return; }
+    const data = await readFile(file);
     res.writeHead(200, {
-      'content-type': MIME[extname(filePath).toLowerCase()] || 'application/octet-stream',
+      'content-type': TYPES[extname(file)] || 'application/octet-stream',
       'cache-control': 'no-store',
-      'x-content-type-options': 'nosniff',
     });
     res.end(data);
   } catch {
-    res.writeHead(404, { 'content-type': 'text/plain' });
-    res.end('not found');
+    res.writeHead(404); res.end('not found');
   }
 });
 
 server.listen(port, () => {
-  console.log(`vice-cover-studio: serving ${appDir} at http://localhost:${port}`);
+  console.log(`Vice Cover Studio preview on http://localhost:${port}/app/`);
 });
