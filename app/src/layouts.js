@@ -1,137 +1,101 @@
-// layouts.js — the collage geometries of Vice Cover Studio.
+// VICE COVER STUDIO — poster layouts.
 //
-// A panel is a rectangle in unit space (0..1 across the whole cover) plus
-// the editorial decisions that make it read as poster art: a role tag for
-// the little black slash label, the sample photo the panel is cast with by
-// default, a punch (focal point and zoom) that frames faces and cars the
-// way a poster artist would, and a slant used by the angled dividers.
+// Every layout is a list of panels in normalised cover coordinates
+// (x, y, w, h as fractions of the canvas), so the same arrangement works at
+// 1080x1080, 1080x1350 and 1920x1080. Each panel names a default sample and
+// a default role tag; the editor can re-fill, re-crop and re-tag any panel.
 //
-// Sample indices follow the shipped sample order:
-//   0 neon woman · 1 speedboat · 2 sunset car · 3 yacht man
-//   4 silver fixer · 5 street racer · 6 bodyguard · 7 glamour insider
-// The last four portraits were generated for this studio's expanded cast,
-// in the same photographic Vice light as the original four.
+// The default layout, Ensemble Poster, is the signature arrangement: one
+// dominant central portrait framed by gold-edged cast panels on a dark
+// plum-brown field, with THE RIDER — a real garage photograph of a weathered
+// cruiser — stretched wide beneath the hero, in the landscape slot its
+// side-profile framing deserves. Ten panels in all.
 
-export const ROLE_TAGS = [
-  'THE DRIVER',
-  'THE GETAWAY',
-  'THE CAPTAIN',
-  'THE RIDE',
-  'THE FIXER',
-  'THE RACER',
-  'THE MUSCLE',
-  'THE INSIDER',
-  'THE CITY',
-];
-
-function panel(x, y, w, h, tag, sample, punch, slant = 0) {
-  return { x, y, w, h, tag, sample, punch, slant };
+function panel(id, tag, sample, x, y, w, h, extra = {}) {
+  return { id, tag, sample, x, y, w, h, ox: 0.5, oy: 0.5, zoom: 1, punch: 0.35, ...extra };
 }
-
-// The punch values are focal points (fx, fy in 0..1 of the photo) and a
-// zoom past the plain cover-fit. They are tuned gently — enough to give a
-// panel poster energy, never enough to bend a face or a car out of shape.
-const PUNCH = {
-  portrait: { fx: 0.5, fy: 0.34, zoom: 1.04 },
-  face: { fx: 0.52, fy: 0.35, zoom: 1.06 },
-  car: { fx: 0.44, fy: 0.58, zoom: 1.06 },
-  boat: { fx: 0.5, fy: 0.52, zoom: 1.05 },
-  wide: { fx: 0.5, fy: 0.46, zoom: 1.03 },
-};
 
 export const LAYOUTS = [
   {
-    id: 'ensemble-poster',
+    id: 'ensemble',
     name: 'Ensemble Poster',
-    ensemble: true,
-    // The full cast around one dominant central portrait: four panels up
-    // each side — the getaway, the ride, the fixer and the racer on the
-    // left; the captain, the muscle, the insider and a gradient city
-    // panel on the right — the crowded movie-poster arrangement.
     panels: [
-      panel(0.035, 0.088, 0.235, 0.1245, 'THE GETAWAY', 1, PUNCH.boat),
-      panel(0.035, 0.221, 0.235, 0.1245, 'THE RIDE', 2, PUNCH.car),
-      panel(0.035, 0.354, 0.235, 0.1245, 'THE FIXER', 4, PUNCH.face),
-      panel(0.035, 0.487, 0.235, 0.1245, 'THE RACER', 5, PUNCH.face),
-      panel(0.29, 0.072, 0.42, 0.54, 'THE DRIVER', 0, PUNCH.portrait),
-      panel(0.73, 0.088, 0.235, 0.1245, 'THE CAPTAIN', 3, PUNCH.face),
-      panel(0.73, 0.221, 0.235, 0.1245, 'THE MUSCLE', 6, PUNCH.face),
-      panel(0.73, 0.354, 0.235, 0.1245, 'THE INSIDER', 7, PUNCH.face),
-      panel(0.73, 0.487, 0.235, 0.1245, 'THE CITY', -1, PUNCH.wide),
+      panel('driver', 'THE DRIVER', 'neon-woman', 0.305, 0.045, 0.39, 0.56, { oy: 0.32 }),
+      panel('getaway', 'THE GETAWAY', 'speedboat', 0.035, 0.045, 0.245, 0.128),
+      panel('ride', 'THE RIDE', 'sunset-car', 0.035, 0.188, 0.245, 0.128),
+      panel('fixer', 'THE FIXER', 'silver-fixer', 0.035, 0.331, 0.245, 0.128),
+      panel('racer', 'THE RACER', 'street-racer', 0.035, 0.474, 0.245, 0.131, { oy: 0.15 }),
+      panel('captain', 'THE CAPTAIN', 'yacht-man', 0.72, 0.045, 0.245, 0.176),
+      panel('muscle', 'THE MUSCLE', 'bodyguard', 0.72, 0.236, 0.245, 0.176),
+      panel('insider', 'THE INSIDER', 'glamour-insider', 0.72, 0.427, 0.245, 0.178, { oy: 0.16 }),
+      panel('rider', 'THE RIDER', 'garage-rider', 0.035, 0.62, 0.455, 0.155, { oy: 0.58 }),
+      panel('lookout', 'THE LOOKOUT', 'garage-rider-2', 0.505, 0.62, 0.46, 0.155, { oy: 0.52 }),
     ],
   },
   {
-    id: 'vice-classic',
-    name: 'Vice Classic',
-    ensemble: false,
+    id: 'duo',
+    name: 'Duo Split',
     panels: [
-      panel(0, 0, 0.52, 0.55, 'THE DRIVER', 0, PUNCH.portrait, 0.06),
-      panel(0.52, 0, 0.48, 0.55, 'THE GETAWAY', 1, PUNCH.boat, 0.06),
-      panel(0, 0.55, 0.3, 0.45, 'THE RIDE', 2, PUNCH.car),
-      panel(0.3, 0.55, 0.34, 0.45, 'THE FIXER', 4, PUNCH.face),
-      panel(0.64, 0.55, 0.36, 0.45, 'THE CAPTAIN', 3, PUNCH.face),
+      panel('left', 'THE DRIVER', 'neon-woman', 0.035, 0.05, 0.45, 0.72, { oy: 0.3 }),
+      panel('right', 'THE RIDER', 'garage-rider', 0.515, 0.05, 0.45, 0.72, { oy: 0.55 }),
     ],
   },
   {
-    id: 'duo-feature',
-    name: 'Duo Feature',
-    ensemble: false,
+    id: 'trio',
+    name: 'Trio Columns',
     panels: [
-      panel(0, 0, 0.52, 1, 'THE DRIVER', 0, PUNCH.portrait, 0.05),
-      panel(0.52, 0, 0.48, 1, 'THE GETAWAY', 1, PUNCH.boat, 0.05),
+      panel('a', 'THE GETAWAY', 'speedboat', 0.03, 0.05, 0.3, 0.72),
+      panel('b', 'THE DRIVER', 'neon-woman', 0.35, 0.05, 0.3, 0.72, { oy: 0.3 }),
+      panel('c', 'THE RIDE', 'sunset-car', 0.67, 0.05, 0.3, 0.72),
     ],
   },
   {
-    id: 'quad-grid',
-    name: 'Quad Grid',
-    ensemble: false,
+    id: 'grid',
+    name: 'Grid Four',
     panels: [
-      panel(0, 0, 0.5, 0.5, 'THE DRIVER', 0, PUNCH.face),
-      panel(0.5, 0, 0.5, 0.5, 'THE GETAWAY', 1, PUNCH.boat),
-      panel(0, 0.5, 0.5, 0.5, 'THE RIDE', 2, PUNCH.car),
-      panel(0.5, 0.5, 0.5, 0.5, 'THE CAPTAIN', 3, PUNCH.face),
+      panel('a', 'THE CAPTAIN', 'yacht-man', 0.035, 0.045, 0.455, 0.35),
+      panel('b', 'THE FIXER', 'silver-fixer', 0.51, 0.045, 0.455, 0.35),
+      panel('c', 'THE RACER', 'street-racer', 0.035, 0.415, 0.455, 0.35),
+      panel('d', 'THE RIDER', 'garage-rider', 0.51, 0.415, 0.455, 0.35, { oy: 0.55 }),
     ],
   },
   {
-    id: 'top-strip',
-    name: 'Top Strip',
-    ensemble: false,
+    id: 'hero',
+    name: 'Solo Hero',
     panels: [
-      panel(0, 0, 1, 0.46, 'THE CITY', 2, PUNCH.wide),
-      panel(0, 0.46, 0.34, 0.54, 'THE DRIVER', 0, PUNCH.portrait),
-      panel(0.34, 0.46, 0.33, 0.54, 'THE RACER', 5, PUNCH.face),
-      panel(0.67, 0.46, 0.33, 0.54, 'THE INSIDER', 7, PUNCH.face),
+      panel('hero', 'THE DRIVER', 'neon-woman', 0.03, 0.04, 0.94, 0.74, { oy: 0.3 }),
     ],
   },
   {
-    id: 'story-strips',
-    name: 'Story Strips',
-    ensemble: false,
+    id: 'strip',
+    name: 'Film Strip',
     panels: [
-      panel(0, 0, 0.34, 1, 'THE DRIVER', 0, PUNCH.portrait, 0.04),
-      panel(0.34, 0, 0.33, 1, 'THE RIDE', 2, PUNCH.car, 0.04),
-      panel(0.67, 0, 0.33, 1, 'THE INSIDER', 7, PUNCH.face, 0.04),
+      panel('wide', 'THE RIDE', 'sunset-car', 0.035, 0.045, 0.93, 0.4),
+      panel('a', 'THE GETAWAY', 'speedboat', 0.035, 0.465, 0.297, 0.3),
+      panel('b', 'THE MUSCLE', 'bodyguard', 0.351, 0.465, 0.297, 0.3),
+      panel('c', 'THE INSIDER', 'glamour-insider', 0.667, 0.465, 0.298, 0.3),
     ],
   },
   {
-    id: 'mosaic-six',
+    id: 'mosaic',
     name: 'Mosaic Six',
-    ensemble: false,
     panels: [
-      panel(0, 0, 0.34, 0.5, 'THE DRIVER', 0, PUNCH.face),
-      panel(0.34, 0, 0.33, 0.5, 'THE GETAWAY', 1, PUNCH.boat),
-      panel(0.67, 0, 0.33, 0.5, 'THE RIDE', 2, PUNCH.car),
-      panel(0, 0.5, 0.34, 0.5, 'THE CAPTAIN', 3, PUNCH.face),
-      panel(0.34, 0.5, 0.33, 0.5, 'THE FIXER', 4, PUNCH.face),
-      panel(0.67, 0.5, 0.33, 0.5, 'THE MUSCLE', 6, PUNCH.face),
+      panel('a', 'THE DRIVER', 'neon-woman', 0.03, 0.045, 0.46, 0.47, { oy: 0.3 }),
+      panel('b', 'THE CAPTAIN', 'yacht-man', 0.51, 0.045, 0.46, 0.225),
+      panel('c', 'THE RIDE', 'sunset-car', 0.51, 0.29, 0.46, 0.225),
+      panel('d', 'THE FIXER', 'silver-fixer', 0.03, 0.535, 0.297, 0.23),
+      panel('e', 'THE RACER', 'street-racer', 0.347, 0.535, 0.297, 0.23),
+      panel('f', 'THE RIDER', 'garage-rider', 0.664, 0.535, 0.306, 0.23, { oy: 0.55 }),
     ],
   },
 ];
 
 export function layoutById(id) {
-  return LAYOUTS.find((layout) => layout.id === id) || LAYOUTS[0];
+  return LAYOUTS.find((l) => l.id === id) || LAYOUTS[0];
 }
 
-// The ensemble poster is the default: it is the arrangement the cover
-// screenshot leads with, so a first-time visitor lands on the full poster.
-export const DEFAULT_LAYOUT_ID = 'ensemble-poster';
+// Fresh, deep-copied panel state for a layout, so edits never mutate the
+// layout definitions themselves.
+export function freshPanels(layoutId) {
+  return layoutById(layoutId).panels.map((p) => ({ ...p }));
+}

@@ -1,7 +1,7 @@
-/* Vice Cover Studio — the editor's own styling.
-   A dark plum-brown room with brass trim and hot-pink neon, so the tool
-   feels like the posters it makes. The Anton display face is loaded from
-   the app's own fonts folder; everything here works with no network. */
+/* VICE COVER STUDIO — editor styling.
+   A dark plum newsroom for a neon poster: deep browns and blacks in the
+   chrome of the app, gold rules and pink neon reserved for actions, so the
+   cover preview itself stays the loudest thing on screen. */
 
 @font-face {
   font-family: "Anton";
@@ -11,318 +11,224 @@
   font-display: swap;
 }
 
-:root {
-  --room-top: #3a1f30;
-  --room-bottom: #1d0d18;
-  --card: #2b1626;
-  --card-edge: #57354c;
-  --ink: #fdf3e3;
-  --ink-dim: #d9bfae;
-  --brass: #ffb52e;
-  --brass-soft: #ffd98f;
-  --neon: #ff3e8c;
-  --neon-soft: #ff7ab0;
-  --field: #1c0e1a;
+* {
+  box-sizing: border-box;
 }
-
-* { box-sizing: border-box; }
 
 body {
   margin: 0;
-  min-height: 100vh;
-  color: var(--ink);
-  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  background:
-    radial-gradient(1100px 500px at 85% -10%, rgba(255, 62, 140, 0.16), transparent 60%),
-    radial-gradient(900px 600px at -10% 110%, rgba(255, 179, 107, 0.12), transparent 60%),
-    linear-gradient(160deg, var(--room-top), var(--room-bottom));
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: #17100e;
+  color: #f3e9d2;
 }
 
 .topbar {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
-  padding: 18px 22px 6px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 26px;
+  background: linear-gradient(120deg, #241118, #3a1430 55%, #571f3d);
+  border-bottom: 3px solid #e8b84b;
 }
 
-.brand { display: flex; gap: 14px; align-items: flex-start; }
-
-.brand-badge {
-  font-family: "Anton", "Arial Narrow", sans-serif;
-  font-size: 26px;
-  letter-spacing: 0.04em;
-  color: #2a0a24;
-  background: linear-gradient(180deg, #ffe9a8, #ffb36b 45%, #ff5e8a);
-  border: 3px solid #12040f;
-  box-shadow: 4px 4px 0 #12040f;
-  padding: 10px 9px 7px;
-  line-height: 1;
-}
-
-.brand-text h1 {
+.brand h1 {
   margin: 0;
-  font-family: "Anton", "Arial Narrow", sans-serif;
-  font-weight: 400;
-  font-size: 37px;
-  letter-spacing: 0.015em;
-  background: linear-gradient(180deg, #fff3c4 5%, #ffc46b 38%, #ff8a5c 58%, #ff5e8a 82%, #e0218a);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(2px 2px 0 rgba(10, 2, 10, 0.85));
+  font-family: "Anton", sans-serif;
+  font-size: 34px;
+  letter-spacing: 2px;
+  color: #ffe9a8;
 }
 
-.brand-text p {
+.brand p {
   margin: 4px 0 0;
-  font-size: 14.5px;
-  color: var(--ink);
+  color: #f6c9de;
+  font-style: italic;
 }
 
-.surprise {
-  font-family: "Anton", "Arial Narrow", sans-serif;
-  font-size: 19px;
-  letter-spacing: 0.03em;
-  color: #fff;
-  background: linear-gradient(180deg, var(--neon-soft), var(--neon));
-  border: 2px solid #ffd7ec;
-  border-radius: 999px;
-  padding: 11px 24px 9px;
+.top-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+button,
+.upload-btn {
+  font: inherit;
   cursor: pointer;
-  box-shadow: 0 0 18px rgba(255, 62, 140, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  white-space: nowrap;
-}
-.surprise:hover { filter: brightness(1.08); }
-
-.stage-wrap {
-  display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
-  gap: 18px;
-  padding: 10px 22px 4px;
-  align-items: start;
+  border: 1px solid #e8b84b;
+  background: #241118;
+  color: #ffe9a8;
+  border-radius: 6px;
+  padding: 8px 14px;
 }
 
-.canvas-frame {
-  border: 1px solid var(--brass);
-  outline: 5px solid rgba(14, 5, 12, 0.85);
-  background: #160812;
-  line-height: 0;
+button:hover,
+.upload-btn:hover {
+  background: #3a1a2c;
 }
 
-#preview {
-  width: 100%;
+button.primary {
+  background: #c72b6e;
+  border-color: #ff5fa8;
+  color: #fff;
+  font-weight: 700;
+}
+
+.workspace {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  padding: 22px 26px;
+  align-items: flex-start;
+}
+
+.stage {
+  flex: 1 1 480px;
+  max-width: 700px;
+  text-align: center;
+}
+
+.stage canvas {
+  max-width: 100%;
   height: auto;
-  display: block;
-  cursor: grab;
-  touch-action: none;
+  border: 2px solid #e8b84b;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.65);
+  background: #12070d;
 }
-#preview:active { cursor: grabbing; }
-#preview.has-selection { outline: 2px dashed rgba(255, 213, 143, 0.0); }
 
-.hint {
-  font-size: 13.5px;
-  color: var(--ink);
-  margin: 12px 2px 10px;
+.status {
+  min-height: 1.4em;
+  color: #ffd9a0;
 }
 
 .export-row {
   display: flex;
+  gap: 8px;
+  justify-content: center;
   align-items: center;
-  gap: 10px;
   flex-wrap: wrap;
 }
 
-.export-label {
-  font-family: "Anton", "Arial Narrow", sans-serif;
-  font-size: 17px;
-  color: var(--brass-soft);
-  letter-spacing: 0.04em;
+.controls {
+  flex: 1 1 320px;
+  max-width: 430px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.export-btn {
-  font-family: "Anton", "Arial Narrow", sans-serif;
-  font-size: 15.5px;
-  letter-spacing: 0.02em;
-  color: #33160a;
-  background: linear-gradient(180deg, #ffeec0, #ffd98f 55%, #f7bd55);
-  border: 1px solid #8a6420;
-  border-radius: 9px;
-  padding: 9px 14px 7px;
-  cursor: pointer;
-  box-shadow: 0 2px 0 #8a6420;
-}
-.export-btn:hover { filter: brightness(1.06); }
-
-.status {
-  font-size: 13.5px;
-  color: var(--ink-dim);
-  margin: 10px 2px 0;
-  min-height: 1.2em;
-}
-
-.controls { display: flex; flex-direction: column; gap: 14px; }
-
-.card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 30%), var(--card);
-  border: 1px solid var(--card-edge);
-  border-radius: 14px;
-  padding: 14px 16px 16px;
-}
-
-.card h2 {
-  margin: 0 0 10px;
-  font-family: "Anton", "Arial Narrow", sans-serif;
-  font-weight: 400;
-  font-size: 19px;
-  color: var(--brass-soft);
-  letter-spacing: 0.03em;
-}
-
-.card h3 {
-  margin: 14px 0 8px;
-  font-family: "Anton", "Arial Narrow", sans-serif;
-  font-weight: 400;
-  font-size: 16px;
-  color: var(--brass-soft);
-  letter-spacing: 0.03em;
-}
-
-.upload {
-  width: 100%;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--brass-soft);
-  background: var(--field);
-  border: 1.5px dashed rgba(255, 213, 143, 0.65);
-  border-radius: 10px;
-  padding: 12px;
-  cursor: pointer;
-}
-.upload:hover { border-color: var(--brass); color: #fff; }
-
-.sample-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin: 12px 0 4px;
-}
-
-.thumb {
-  padding: 0;
-  border: 2px solid transparent;
+fieldset {
+  border: 1px solid #6d4a2f;
   border-radius: 8px;
-  background: #12060f;
-  cursor: pointer;
-  overflow: hidden;
-  line-height: 0;
+  padding: 12px 14px 14px;
+  background: #1f130f;
 }
-.thumb img { width: 100%; height: 52px; object-fit: cover; display: block; }
-.thumb span {
+
+legend {
+  font-family: "Anton", sans-serif;
+  letter-spacing: 1px;
+  color: #e8b84b;
+  padding: 0 6px;
+}
+
+.controls label {
   display: block;
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--ink);
-  background: rgba(10, 4, 10, 0.88);
-  padding: 4px 2px 5px;
-  line-height: 1.1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.thumb.focus { border-color: var(--neon); }
-.thumb:hover { border-color: var(--brass-soft); }
-
-.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
-
-.chip {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--ink);
-  background: #3a1d31;
-  border: 1px solid #6e4460;
-  border-radius: 999px;
-  padding: 7px 13px;
-  cursor: pointer;
-}
-.chip:hover { border-color: var(--brass-soft); }
-.chip.active {
-  background: linear-gradient(180deg, var(--neon-soft), var(--neon));
-  border-color: #ffd7ec;
-  color: #fff;
-  box-shadow: 0 0 12px rgba(255, 62, 140, 0.5);
-}
-
-.field-row {
-  display: grid;
-  grid-template-columns: 92px 1fr;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
+  margin: 8px 0;
   font-size: 14px;
+  color: #e9dcc0;
 }
-.field-row span { color: var(--ink); }
-.field-row em { font-style: normal; color: var(--brass-soft); }
 
-.field-row input[type="text"],
-.field-row select {
+.controls select,
+.controls input[type="text"] {
   width: 100%;
-  font-size: 14.5px;
-  color: var(--ink);
-  background: var(--field);
-  border: 1px solid #6e4460;
-  border-radius: 8px;
-  padding: 8px 10px;
+  margin-top: 4px;
+  padding: 7px 9px;
+  border-radius: 5px;
+  border: 1px solid #6d4a2f;
+  background: #120b09;
+  color: #fdf6e3;
+  font: inherit;
 }
-.field-row input[type="text"]:focus,
-.field-row select:focus { outline: 2px solid var(--neon); outline-offset: 0; }
 
-.field-row input[type="range"] { width: 100%; accent-color: var(--neon); }
-.check-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--neon); justify-self: start; }
-
-.fine { font-size: 12.5px; color: var(--ink-dim); margin: 10px 0 0; }
-
-.ghost {
-  margin-top: 12px;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--ink);
-  background: transparent;
-  border: 1px solid #6e4460;
-  border-radius: 8px;
-  padding: 8px 12px;
-  cursor: pointer;
+.controls input[type="range"] {
+  width: 100%;
+  margin-top: 4px;
+  accent-color: #e83e8c;
 }
-.ghost:hover { border-color: var(--brass-soft); }
 
-.colophon {
-  padding: 8px 22px 20px;
+.hint {
+  font-size: 13px;
+  color: #cbb894;
+  margin: 4px 0 10px;
+  line-height: 1.45;
+}
+
+.panel-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.panel-btn {
   font-size: 12.5px;
-  color: var(--ink-dim);
+  padding: 6px 9px;
 }
 
-/* The full-screen veil that holds an exported cover while it is being
-   photographed for the screenshots: the app's own PNG, scaled to fit. */
-#vcs-export-veil {
-  position: fixed;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: #241019;
-  z-index: 50;
+.panel-btn.active {
+  background: #e8b84b;
+  color: #241118;
+  font-weight: 700;
 }
-#vcs-export-veil img {
+
+.sample-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  gap: 8px;
+}
+
+.sample-btn {
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  font-size: 11px;
+  color: #f3e9d2;
+}
+
+.sample-btn img {
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  height: 58px;
+  object-fit: cover;
+  border-radius: 4px;
   display: block;
 }
 
-@media (max-width: 900px) {
-  .stage-wrap { grid-template-columns: 1fr; }
-  .brand-text h1 { font-size: 29px; }
-  .surprise { font-size: 16px; padding: 9px 16px 8px; }
-  /* On a narrow screen the control cards stack under the stage, in the
-     same 1-2-3-4 order the maker works through them. */
-  .controls { gap: 12px; }
+.sample-gradient {
+  width: 100%;
+  height: 58px;
+  border-radius: 4px;
+  display: block;
+  background: linear-gradient(180deg, #2b1030, #c73e63 55%, #f2762e 80%, #ffc46b);
+}
+
+.recipe-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.recipe-btn {
+  font-size: 12.5px;
+  padding: 6px 10px;
+}
+
+.foot {
+  padding: 10px 26px 26px;
+  color: #a68f6d;
+  font-size: 13px;
+  text-align: center;
 }

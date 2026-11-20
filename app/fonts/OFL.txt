@@ -1,13 +1,8 @@
-Copyright 2020 The Anton Project Authors (https://github.com/googlefonts/AntonFont)
-
-Anton is a rework of a traditional advertising sans serif typeface,
-redrawn as a single bold weight for headlines and poster lettering.
-Vice Cover Studio ships the regular weight as app/fonts/anton-regular.ttf
-for its canvas title lettering, under the license below.
+Copyright 2011 The Anton Project Authors (https://github.com/googlefonts/AntonFont)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
-https://openfontlicense.org
+http://scripts.sil.org/OFL
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
@@ -18,7 +13,7 @@ The goals of the Open Font License (OFL) are to stimulate worldwide
 development of collaborative font projects, to support the font creation
 efforts of academic and linguistic communities, and to provide a free and
 open framework in which fonts may be shared and improved in partnership
-with the community.
+with others.
 
 The OFL allows the licensed fonts to be used, studied, modified and
 redistributed freely as long as they are not sold by themselves. The
@@ -37,13 +32,13 @@ include source files, build scripts and documentation.
 "Reserved Font Name" refers to any names specified as such after the
 copyright statement(s).
 
-"Original Version" refers to the collection of Font Software components
-as distributed by the Copyright Holder(s).
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
 
 "Modified Version" refers to any derivative made by adding to, deleting,
 or substituting -- in part or in whole -- any of the components of the
-Original Version, by changing formats or by porting the Font Software
-to a new environment.
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
 
 "Author" refers to any designer, engineer, programmer, technical
 writer or other person who contributed to the Font Software.
@@ -65,9 +60,9 @@ in the appropriate machine-readable metadata fields within text or
 binary files as long as those fields can be easily viewed by the user.
 
 3) No Modified Version of the Font Software may use the Reserved Font
-Name(s) unless explicit written permission is granted by the
-corresponding Copyright Holder. This restriction only applies to the
-primary font name as presented to the users.
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
 
 4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
 Software shall not be used to promote, endorse or advertise any
@@ -95,3 +90,8 @@ INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
 DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
+
+---
+Bundled font: Anton (regular weight), a rework of a traditional grotesque
+sans-serif, drawn by Vernon Adams. Included in this app under the license
+above; the font file itself is unmodified.
